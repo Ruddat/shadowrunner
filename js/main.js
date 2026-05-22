@@ -87,10 +87,14 @@ let centerMessageBurstDone = false;
 let weaponHudPulse = 0;
 let gameState = 'intro';
 let introTime = 0;
+let levelStats = null;
+
 
 registerMusic('title', 'assets/audio/title-theme.mp3');
 registerMusic('level1', 'assets/audio/level1-theme.mp3');
 registerMusic('level4', 'assets/audio/level4-boss-theme.mp3');
+registerMusic('levelComplete', 'assets/audio/level-complete.mp3', false);
+
 
 registerSound('menuMove', 'assets/audio/menu-move.mp3');
 registerSound('menuSelect', 'assets/audio/menu-select.mp3');
@@ -111,6 +115,18 @@ initIntro();
 initTitleScreen();
 initCreditsScreen();
 initLevelFx();
+
+
+function createLevelStats(level) {
+    return {
+        levelName: level.name ?? 'UNKNOWN LEVEL',
+        gemsTotal: level.gems?.length ?? 0,
+        startedAt: performance.now(),
+        completedAt: null,
+        enemiesTotal: level.enemies?.length ?? 0,
+        bossDefeated: false,
+    };
+}
 
 
 function initializeLevelState(level) {
@@ -147,6 +163,8 @@ function initializeLevelState(level) {
     }
 }
 
+
+levelStats = createLevelStats(currentLevel);
 
 function update(dt) {
     if (gameState === 'intro') {
@@ -559,20 +577,30 @@ function updateProjectiles(dt) {
 
             camera.shake(7, 0.12);
 
-            if (boss.health <= 0) {
-                boss.active = false;
-                currentLevel.exit.locked = false;
+if (boss.health <= 0) {
+    boss.active = false;
+    currentLevel.exit.locked = false;
 
-                spawnParticles(
-                    boss.x + boss.width / 2,
-                    boss.y + boss.height / 2,
-                    70,
-                    '#ff2bd6'
-                );
+    spawnParticles(
+        boss.x + boss.width / 2,
+        boss.y + boss.height / 2,
+        90,
+        '#ff2bd6'
+    );
 
-                camera.shake(18, 0.5);
-                messageTimer = 1.2;
-            }
+    spawnParticles(
+        boss.x + boss.width / 2,
+        boss.y + boss.height / 2,
+        50,
+        '#21e6ff'
+    );
+
+    camera.shake(22, 0.65);
+
+    setTimeout(() => {
+        completeLevel({ bossDefeated: true });
+    }, 700);
+}
         }
     }
 
@@ -675,20 +703,30 @@ function damageBossInRadius(centerX, centerY, radius, damage) {
         '#fb7185'
     );
 
-    if (boss.health <= 0) {
-        boss.active = false;
-        currentLevel.exit.locked = false;
+if (boss.health <= 0) {
+    boss.active = false;
+    currentLevel.exit.locked = false;
 
-        spawnParticles(
-            bossCenterX,
-            bossCenterY,
-            70,
-            '#ff2bd6'
-        );
+    spawnParticles(
+        bossCenterX,
+        bossCenterY,
+        90,
+        '#ff2bd6'
+    );
 
-        camera.shake(18, 0.5);
-        messageTimer = 1.2;
-    }
+    spawnParticles(
+        bossCenterX,
+        bossCenterY,
+        50,
+        '#21e6ff'
+    );
+
+    camera.shake(22, 0.65);
+
+    setTimeout(() => {
+        completeLevel({ bossDefeated: true });
+    }, 700);
+}
 }
 
 function updateExit() {
@@ -696,15 +734,108 @@ function updateExit() {
 
     if (currentLevel.exit.locked) return;
 
-
     if (rectsOverlap(player, currentLevel.exit)) {
         player.levelComplete = true;
-        messageTimer = 1.5;
+
+        spawnParticles(
+            currentLevel.exit.x + currentLevel.exit.width / 2,
+            currentLevel.exit.y + currentLevel.exit.height / 2,
+            44,
+            '#21e6ff'
+        );
+
+        camera.shake(10, 0.22);
 
         setTimeout(() => {
-            loadNextLevel();
-        }, 1200);
+            completeLevel({ bossDefeated: false });
+        }, 500);
     }
+}
+
+function drawLevelCompleteScreen() {
+    const completedMs = levelStats?.completedAt && levelStats?.startedAt
+        ? levelStats.completedAt - levelStats.startedAt
+        : 0;
+
+    const seconds = Math.max(0, Math.floor(completedMs / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const restSeconds = seconds % 60;
+
+    const timeText = `${String(minutes).padStart(2, '0')}:${String(restSeconds).padStart(2, '0')}`;
+
+    const gemsTotal = levelStats?.gemsTotal ?? currentLevel.gems.length;
+    const gemsCollected = player.gems ?? 0;
+
+    const enemiesTotal = levelStats?.enemiesTotal ?? currentLevel.enemies.length;
+    const enemiesLeft = currentLevel.enemies.filter(enemy => enemy.active !== false).length;
+    const enemiesDefeated = Math.max(0, enemiesTotal - enemiesLeft);
+
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.86)';
+    ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+    ctx.shadowColor = '#21e6ff';
+    ctx.shadowBlur = 28;
+
+    ctx.fillStyle = 'rgba(5, 5, 16, 0.94)';
+    ctx.fillRect(CONFIG.width / 2 - 280, 88, 560, 350);
+
+    ctx.strokeStyle = '#21e6ff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(CONFIG.width / 2 - 280, 88, 560, 350);
+
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#ff2bd6';
+    ctx.font = '900 42px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEVEL COMPLETE', CONFIG.width / 2, 150);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 22px monospace';
+    ctx.fillText(levelStats?.levelName ?? currentLevel.name ?? 'STAGE CLEAR', CONFIG.width / 2, 192);
+
+    ctx.textAlign = 'left';
+    ctx.font = '900 20px monospace';
+
+    const left = CONFIG.width / 2 - 190;
+    let y = 245;
+
+    ctx.fillStyle = '#21e6ff';
+    ctx.fillText('TIME', left, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(timeText, left + 260, y);
+
+    y += 42;
+
+    ctx.fillStyle = '#ff2bd6';
+    ctx.fillText('GEMS', left, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${gemsCollected} / ${gemsTotal}`, left + 260, y);
+
+    y += 42;
+
+    ctx.fillStyle = '#facc15';
+    ctx.fillText('ENEMIES', left, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${enemiesDefeated} / ${enemiesTotal}`, left + 260, y);
+
+    y += 42;
+
+    ctx.fillStyle = '#22c55e';
+    ctx.fillText('LIVES', left, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`x ${player.lives}`, left + 260, y);
+
+    y += 58;
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 18px monospace';
+    ctx.fillText('PRESS ENTER OR CLICK TO NEXT LEVEL', CONFIG.width / 2, y);
+
+    ctx.restore();
 }
 
 
@@ -738,9 +869,27 @@ function loadNextLevel() {
     enemyProjectiles.length = 0;
 
     initializeLevelState(currentLevel);
+    levelStats = createLevelStats(currentLevel);
 
 }
 
+function completeLevel({ bossDefeated = false } = {}) {
+    if (gameState === 'levelComplete') return;
+
+    if (levelStats) {
+        levelStats.completedAt = performance.now();
+        levelStats.bossDefeated = bossDefeated;
+    }
+
+    projectiles.length = 0;
+    bossProjectiles.length = 0;
+    enemyProjectiles.length = 0;
+
+    stopMusic();
+    playMusic('levelComplete');
+
+    gameState = 'levelComplete';
+}
 
 function drawBackground() {
     ctx.fillStyle = '#060612';
@@ -1276,20 +1425,20 @@ function updateEnemyProjectiles(dt) {
             continue;
         }
 
-if (rectsOverlap(player, shot)) {
-    shot.active = false;
-    player.hit(currentLevel, shot.damage ?? 20);
+        if (rectsOverlap(player, shot)) {
+            shot.active = false;
+            player.hit(currentLevel, shot.damage ?? 20);
 
-    spawnParticles(
-        player.x + player.width / 2,
-        player.y + player.height / 2,
-        22,
-        shot.color ?? '#ff003c'
-    );
+            spawnParticles(
+                player.x + player.width / 2,
+                player.y + player.height / 2,
+                22,
+                shot.color ?? '#ff003c'
+            );
 
-    camera.shake(10, 0.2);
-    showCenterMessage('HIT', 0.65);
-}
+            camera.shake(10, 0.2);
+            showCenterMessage('HIT', 0.65);
+        }
     }
 
     for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
@@ -1464,6 +1613,24 @@ function render() {
         return;
     }
 
+if (gameState === 'levelComplete') {
+    drawBackground();
+    drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
+    drawPlatforms();
+    drawGems();
+    drawExit();
+    drawEnemies();
+    drawBoss();
+    drawParticles(ctx, camera);
+    player.draw(ctx, camera);
+    drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
+    drawLevelCompleteScreen();
+    return;
+}
+
+
+
+
     drawBackground();
     drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
 
@@ -1542,6 +1709,15 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
+if (gameState === 'levelComplete' && e.code === 'Enter') {
+    stopMusic();
+    loadNextLevel();
+    playMusic(currentLevel.music ?? 'level1');
+    gameState = 'playing';
+    return;
+}
+
+
     if (gameState === 'playing') {
         if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
         if (e.code === 'Digit2') switchWeaponForDebug(WEAPON_IDS.SPREAD);
@@ -1568,6 +1744,17 @@ canvas.addEventListener('click', () => {
             gameState = 'playing';
         }
     }
+
+if (gameState === 'levelComplete') {
+    stopMusic();
+    loadNextLevel();
+    playMusic(currentLevel.music ?? 'level1');
+    gameState = 'playing';
+    return;
+}
+
+
+
 });
 
 requestAnimationFrame(loop);
