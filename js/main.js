@@ -791,13 +791,9 @@ function drawBottomPanel() {
     drawBottomHudValues(x, y, hudWidth, hudHeight);
 }
 
-    if (gameState === 'playing') {
-        if (e.code === 'Digit1') player.setWeapon(WEAPON_IDS.BLASTER);
-        if (e.code === 'Digit2') player.setWeapon(WEAPON_IDS.SPREAD);
-        if (e.code === 'Digit3') player.setWeapon(WEAPON_IDS.LASER);
-        if (e.code === 'Digit4') player.setWeapon(WEAPON_IDS.WAVE);
-        if (e.code === 'Digit5') player.setWeapon(WEAPON_IDS.BOUNCE);
-    }
+function getWeaponName() {
+    return getWeaponDisplayName(player.weaponId, player.weaponLevel);
+}
 
 
 function drawBottomHudValues(x, y, hudWidth, hudHeight) {
@@ -1070,7 +1066,13 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-
+    if (gameState === 'playing') {
+        if (e.code === 'Digit1') player.setWeapon(WEAPON_IDS.BLASTER);
+        if (e.code === 'Digit2') player.setWeapon(WEAPON_IDS.SPREAD);
+        if (e.code === 'Digit3') player.setWeapon(WEAPON_IDS.LASER);
+        if (e.code === 'Digit4') player.setWeapon(WEAPON_IDS.WAVE);
+        if (e.code === 'Digit5') player.setWeapon(WEAPON_IDS.BOUNCE);
+    }
 });
 
 canvas.addEventListener('click', () => {
