@@ -190,10 +190,10 @@ function updateGems() {
             messageTimer = 0.8;
 
             spawnParticles(
-                enemy.x + enemy.width / 2,
-                enemy.y + enemy.height / 2,
+                gem.x + 13,
+                gem.y + 13,
                 14,
-                projectile.color
+                '#ff2bd6'
             );
         }
     }
