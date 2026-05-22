@@ -71,7 +71,7 @@ export const level1 = {
         // Optionaler Random-Block Richtung Ende
         {
             x: 2260,
-            y: 232,
+            y: 202,
             width: 42,
             height: 42,
             used: false,

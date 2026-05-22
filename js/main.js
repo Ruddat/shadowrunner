@@ -67,6 +67,8 @@ const camera = new Camera();
 const projectiles = [];
 const bossProjectiles = [];
 
+initializeLevelState(currentLevel);
+
 let lastTime = 0;
 let messageTimer = 0;
 let gameState = 'intro';
@@ -85,6 +87,38 @@ initIntro();
 initTitleScreen();
 initCreditsScreen();
 initLevelFx();
+
+
+function initializeLevelState(level) {
+    if (level.enemies) {
+        for (const enemy of level.enemies) {
+            enemy.maxHealth = enemy.maxHealth ?? enemy.health ?? 1;
+            enemy.health = enemy.maxHealth;
+            enemy.active = true;
+        }
+    }
+
+    if (level.boss) {
+        level.boss.maxHealth = level.boss.maxHealth ?? level.boss.health ?? 1;
+        level.boss.health = level.boss.maxHealth;
+        level.boss.active = level.boss.active ?? true;
+    }
+
+    if (level.gems) {
+        for (const gem of level.gems) {
+            gem.collected = false;
+        }
+    }
+
+    if (level.bonusBlocks) {
+        for (const block of level.bonusBlocks) {
+            block.used = false;
+            block.bumpTimer = 0;
+            block.spawnRequest = null;
+        }
+    }
+}
+
 
 function update(dt) {
     if (gameState === 'intro') {
@@ -155,7 +189,12 @@ function updateGems() {
             player.gems++;
             messageTimer = 0.8;
 
-            spawnParticles(gem.x + 13, gem.y + 13, 18, '#ff2bd6');
+            spawnParticles(
+                enemy.x + enemy.width / 2,
+                enemy.y + enemy.height / 2,
+                14,
+                projectile.color
+            );
         }
     }
 }
@@ -309,15 +348,15 @@ function updateProjectiles(dt) {
         for (const enemy of currentLevel.enemies) {
             if (enemy.active === false) continue;
 
-if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
-    projectile.markHit(enemy);
+            if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
+                projectile.markHit(enemy);
 
                 spawnParticles(
                     enemy.x + enemy.width / 2,
                     enemy.y + enemy.height / 2,
-                    14,
-                    '#ff003c'
-                );
+                    projectile.weaponId === WEAPON_IDS.LASER ? 24 : 14,
+                    projectile.color ?? '#ff003c'
+                )
 
                 camera.shake(5, 0.14);
 
@@ -326,12 +365,12 @@ if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
                 if (enemy.health <= 0) {
                     enemy.active = false;
 
-                    spawnParticles(
-                        enemy.x + enemy.width / 2,
-                        enemy.y + enemy.height / 2,
-                        28,
-                        '#ff2bd6'
-                    );
+spawnParticles(
+    enemy.x + enemy.width / 2,
+    enemy.y + enemy.height / 2,
+    projectile.weaponId === WEAPON_IDS.LASER ? 44 : 28,
+    projectile.color ?? '#ff2bd6'
+);
 
                     camera.shake(9, 0.22);
                     messageTimer = 0.6;
@@ -349,15 +388,15 @@ if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
             projectile.active !== false &&
             rectsOverlap(projectile, boss)
         ) {
-projectile.markHit(boss);
-boss.health -= projectile.damage;
+            projectile.markHit(boss);
+            boss.health -= projectile.damage;
 
-            spawnParticles(
-                boss.x + boss.width / 2,
-                boss.y + boss.height / 2,
-                18,
-                '#facc15'
-            );
+spawnParticles(
+    boss.x + boss.width / 2,
+    boss.y + boss.height / 2,
+    projectile.weaponId === WEAPON_IDS.LASER ? 30 : 18,
+    projectile.color ?? '#facc15'
+);
 
             camera.shake(7, 0.12);
 
@@ -432,14 +471,8 @@ function loadNextLevel() {
     projectiles.length = 0;
     bossProjectiles.length = 0;
 
-    for (const gem of currentLevel.gems) {
-        gem.collected = false;
-    }
+initializeLevelState(currentLevel);
 
-    for (const enemy of currentLevel.enemies) {
-        enemy.active = true;
-        enemy.health = enemy.health ?? 1;
-    }
 }
 
 
