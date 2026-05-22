@@ -175,6 +175,7 @@ function update(dt) {
     updateGems();
     updateExit();
     updateEnemies(dt);
+    updateEnemyProjectiles(dt);
     updateBoss(dt);
     updateBossProjectiles(dt);
     updateProjectiles(dt);
@@ -1305,13 +1306,33 @@ function drawEnemyProjectiles() {
         ctx.save();
 
         ctx.shadowColor = shot.glow ?? '#ff003c';
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 22;
 
         ctx.fillStyle = shot.color ?? '#ff003c';
-        ctx.fillRect(x, y, shot.width, shot.height);
+        ctx.beginPath();
+        ctx.ellipse(
+            x + shot.width / 2,
+            y + shot.height / 2,
+            shot.width / 2,
+            Math.max(4, shot.height / 2),
+            0,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
 
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x + 3, y + 2, Math.max(2, shot.width - 6), 2);
+        ctx.beginPath();
+        ctx.ellipse(
+            x + shot.width / 2,
+            y + shot.height / 2,
+            Math.max(3, shot.width / 5),
+            Math.max(2, shot.height / 4),
+            0,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
 
         ctx.restore();
     }
