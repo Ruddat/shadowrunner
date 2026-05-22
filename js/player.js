@@ -1,0 +1,171 @@
+import { CONFIG } from './config.js';
+import { keys } from './input.js';
+import { resolvePlatformCollision } from './collision.js';
+import { Projectile } from './projectile.js';
+
+export class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.prevY = y;
+
+        this.width = 42;
+        this.height = 70;
+
+        this.velocityX = 0;
+        this.velocityY = 0;
+
+        this.onGround = false;
+        this.facing = 1;
+
+        this.lives = 3;
+        this.invincibleTimer = 0;
+
+        this.shootCooldown = 0;
+
+        this.energy = 100;
+        this.weaponLevel = 1;
+
+        this.gems = 0;
+        this.levelComplete = false;
+    }
+
+    update(dt, level) {
+        this.prevY = this.y;
+
+        this.velocityX = 0;
+
+        if (keys.left) {
+            this.velocityX = -CONFIG.moveSpeed;
+            this.facing = -1;
+        }
+
+        if (keys.right) {
+            this.velocityX = CONFIG.moveSpeed;
+            this.facing = 1;
+        }
+
+        if (keys.jump && this.onGround) {
+            this.velocityY = -CONFIG.jumpForce;
+            this.onGround = false;
+        }
+
+        if (this.invincibleTimer > 0) {
+            this.invincibleTimer -= dt;
+        }
+
+        if (this.shootCooldown > 0) {
+            this.shootCooldown -= dt;
+        }
+
+        this.velocityY += CONFIG.gravity * dt;
+
+        this.x += this.velocityX * dt;
+        this.y += this.velocityY * dt;
+
+        if (this.velocityY < 0 && level.bonusBlocks) {
+            for (const block of level.bonusBlocks) {
+                const hitFromBelow =
+                    this.x < block.x + block.width &&
+                    this.x + this.width > block.x &&
+                    this.y <= block.y + block.height &&
+                    this.prevY >= block.y + block.height;
+
+                if (hitFromBelow) {
+                    this.y = block.y + block.height;
+                    this.velocityY = 120;
+
+                    if (!block.used) {
+                        block.used = true;
+                        block.bumpTimer = 0.18;
+
+                        block.spawnRequest = {
+                            x: block.x + 7,
+                            y: block.y - 4,
+                            reward: block.reward,
+                        };
+                    }
+                }
+            }
+        }
+
+
+        if (this.x < 0) this.x = 0;
+        if (this.x > CONFIG.worldWidth - this.width) {
+            this.x = CONFIG.worldWidth - this.width;
+        }
+
+        resolvePlatformCollision(this, level.platforms);
+
+        if (this.y > CONFIG.height + 300) {
+            this.respawn(level);
+        }
+    }
+
+
+    hit(level) {
+        if (this.invincibleTimer > 0) return;
+
+        this.lives--;
+        this.invincibleTimer = 1.2;
+
+        if (this.lives <= 0) {
+            this.lives = 3;
+            this.gems = 0;
+
+            for (const gem of level.gems) {
+                gem.collected = false;
+            }
+        }
+
+        this.respawn(level);
+    }
+
+    shoot(projectiles) {
+        if (this.shootCooldown > 0) return;
+
+        const x = this.facing === 1
+            ? this.x + this.width
+            : this.x - 22;
+
+        const y = this.y + 32;
+
+        projectiles.push(new Projectile(x, y, this.facing, this.weaponLevel));
+
+        this.shootCooldown = 0.25;
+    }
+
+
+    respawn(level) {
+        this.x = level.spawn.x;
+        this.y = level.spawn.y;
+        this.velocityX = 0;
+        this.velocityY = 0;
+    }
+
+    draw(ctx, camera) {
+        const screenX = this.x - camera.x;
+        const screenY = this.y - camera.y;
+
+        ctx.save();
+
+        ctx.shadowColor = '#ff2bd6';
+        ctx.shadowBlur = 18;
+
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(screenX, screenY, this.width, this.height);
+
+        ctx.fillStyle = '#ff2bd6';
+        ctx.fillRect(screenX + 8, screenY + 12, 26, 10);
+
+        ctx.fillStyle = '#21e6ff';
+        ctx.fillRect(
+            screenX + (this.facing === 1 ? 30 : 4),
+            screenY + 28,
+            10,
+            8
+        );
+
+        ctx.restore();
+    }
+}
