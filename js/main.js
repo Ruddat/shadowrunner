@@ -15,7 +15,11 @@ import {
     getPowerupColor,
     POWERUP_TYPES,
 } from './powerups.js';
-import { getWeaponDisplayName, WEAPON_IDS } from './weapons.js';
+import {
+    getWeaponDisplayName,
+    getWeaponPickupLabel,
+    WEAPON_IDS,
+} from './weapons.js';
 
 import {
     initLevelFx,
@@ -72,6 +76,7 @@ initializeLevelState(currentLevel);
 
 let lastTime = 0;
 let messageTimer = 0;
+let centerMessage = '';
 let gameState = 'intro';
 let introTime = 0;
 
@@ -161,6 +166,11 @@ function update(dt) {
 
     if (messageTimer > 0) {
         messageTimer -= dt;
+
+        if (messageTimer <= 0) {
+            messageTimer = 0;
+            centerMessage = '';
+        }
     }
 }
 
@@ -188,7 +198,7 @@ function updateGems() {
         if (rectsOverlap(player, gemBox)) {
             gem.collected = true;
             player.gems++;
-            messageTimer = 0.8;
+            showCenterMessage('+ GEM', 0.65);
 
             spawnParticles(
                 gem.x + 13,
@@ -286,25 +296,28 @@ function updatePowerupPickup() {
 
         if (item.type === POWERUP_TYPES.GEM) {
             player.gems++;
-            messageTimer = 0.8;
+            showCenterMessage('+ GEM', 0.65);
             return;
         }
 
         if (item.type === POWERUP_TYPES.LIFE) {
             player.lives = Math.min(player.lives + 1, 9);
-            messageTimer = 0.8;
+            showCenterMessage('1UP', 0.9);
             return;
         }
 
         if (item.type === POWERUP_TYPES.ENERGY) {
             player.energy = Math.min(player.energy + 25, 100);
-            messageTimer = 0.8;
+            showCenterMessage('ENERGY +25', 0.8);
             return;
         }
 
         if (item.type === POWERUP_TYPES.WEAPON) {
             player.setWeapon(item.weaponId);
-            messageTimer = 0.8;
+            showCenterMessage(
+                getWeaponDisplayName(player.weaponId, player.weaponLevel),
+                1.0
+            );
             return;
         }
     }
@@ -334,6 +347,10 @@ function burstPowerupPickup(item) {
     camera.shake(4, 0.12);
 }
 
+function showCenterMessage(text, duration = 0.8) {
+    centerMessage = text;
+    messageTimer = duration;
+}
 
 function updateBonusBlockSpawns() {
     if (!currentLevel.bonusBlocks) return;
@@ -614,7 +631,7 @@ function loadNextLevel() {
     projectiles.length = 0;
     bossProjectiles.length = 0;
 
-initializeLevelState(currentLevel);
+    initializeLevelState(currentLevel);
 
 }
 
@@ -763,15 +780,14 @@ function drawHud() {
 
     ctx.restore();
 
-    if (messageTimer > 0 && player.invincibleTimer > 0) {
-        drawCenterMessage('HIT');
-    } else if (messageTimer > 0 && !player.levelComplete) {
-        drawCenterMessage('+ ITEM');
-    }
-
     if (player.levelComplete) {
         drawCenterMessage('LEVEL COMPLETE');
+    } else if (messageTimer > 0 && player.invincibleTimer > 0) {
+        drawCenterMessage('HIT');
+    } else if (messageTimer > 0 && centerMessage) {
+        drawCenterMessage(centerMessage);
     }
+
 }
 
 function drawTopHudImage() {
