@@ -1105,6 +1105,7 @@ window.addEventListener('keydown', (e) => {
         if (e.code === 'Digit3') player.setWeapon(WEAPON_IDS.LASER);
         if (e.code === 'Digit4') player.setWeapon(WEAPON_IDS.WAVE);
         if (e.code === 'Digit5') player.setWeapon(WEAPON_IDS.BOUNCE);
+        if (e.code === 'Digit6') player.setWeapon(WEAPON_IDS.PLASMA);
     }
 });
 

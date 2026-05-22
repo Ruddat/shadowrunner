@@ -31,6 +31,8 @@ export class Projectile {
         this.waveTime = 0;
 
         this.bounces = stats.bounces ?? 0;
+        this.plasma = Boolean(stats.plasma);
+        this.rotation = 0;
         this.hitTargets = new Set();
 
         this.active = true;
@@ -38,6 +40,12 @@ export class Projectile {
 
     update(dt) {
         this.x += this.vx * dt;
+
+if (this.plasma) {
+    this.rotation += dt * 10;
+    this.vy += 260 * dt;
+}
+
 
         if (this.wave) {
             this.waveTime += dt;
@@ -86,6 +94,29 @@ export class Projectile {
         ctx.shadowColor = this.glow;
         ctx.shadowBlur = this.weaponId === WEAPON_IDS.LASER ? 24 : 16;
         ctx.fillStyle = this.color;
+
+
+if (this.weaponId === WEAPON_IDS.PLASMA) {
+    ctx.translate(x + this.width / 2, y + this.height / 2);
+    ctx.rotate(this.rotation);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-this.width / 3, 0);
+    ctx.lineTo(this.width / 3, 0);
+    ctx.moveTo(0, -this.height / 3);
+    ctx.lineTo(0, this.height / 3);
+    ctx.stroke();
+
+    ctx.restore();
+    return;
+}
+
 
         if (this.weaponId === WEAPON_IDS.WAVE) {
             ctx.beginPath();

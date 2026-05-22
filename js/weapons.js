@@ -4,7 +4,9 @@ export const WEAPON_IDS = {
     LASER: 'laser',
     WAVE: 'wave',
     BOUNCE: 'bounce',
+    PLASMA: 'plasma',
 };
+
 
 export const WEAPONS = {
     [WEAPON_IDS.BLASTER]: {
@@ -86,6 +88,24 @@ export const WEAPONS = {
         glow: '#22c55e',
         bounces: 3,
     },
+
+[WEAPON_IDS.PLASMA]: {
+    id: WEAPON_IDS.PLASMA,
+    name: 'PLASMA GRENADE',
+    shortName: 'PLASMA',
+    damage: 3,
+    fireRate: 0.48,
+    projectileSpeed: 460,
+    bullets: 1,
+    spread: 0,
+    width: 24,
+    height: 24,
+    color: '#fb7185',
+    glow: '#fb7185',
+    plasma: true,
+},
+
+
 };
 
 export const WEAPON_PICKUP_POOL = [
@@ -93,6 +113,7 @@ export const WEAPON_PICKUP_POOL = [
     WEAPON_IDS.LASER,
     WEAPON_IDS.WAVE,
     WEAPON_IDS.BOUNCE,
+    WEAPON_IDS.PLASMA,
 ];
 
 export function getWeapon(weaponId) {
@@ -141,6 +162,16 @@ export function getWeaponStats(weaponId, weaponLevel = 1) {
         stats.damage = level >= 3 ? 2 : 1;
         stats.bounces = base.bounces + (level - 1);
     }
+
+if (weaponId === WEAPON_IDS.PLASMA) {
+    stats.damage = level === 1 ? 3 : level === 2 ? 4 : 5;
+    stats.projectileSpeed = base.projectileSpeed + (level - 1) * 35;
+    stats.fireRate = Math.max(0.34, base.fireRate - (level - 1) * 0.04);
+    stats.width = level === 1 ? 24 : level === 2 ? 30 : 38;
+    stats.height = stats.width;
+    stats.plasma = true;
+}
+
 
     return stats;
 }
