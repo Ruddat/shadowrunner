@@ -1276,20 +1276,20 @@ function updateEnemyProjectiles(dt) {
             continue;
         }
 
-        if (rectsOverlap(player, shot)) {
-            shot.active = false;
-            player.hit(currentLevel, enemy.contactDamage ?? 30);
+if (rectsOverlap(player, shot)) {
+    shot.active = false;
+    player.hit(currentLevel, shot.damage ?? 20);
 
-            spawnParticles(
-                player.x + player.width / 2,
-                player.y + player.height / 2,
-                22,
-                shot.color ?? '#ff003c'
-            );
+    spawnParticles(
+        player.x + player.width / 2,
+        player.y + player.height / 2,
+        22,
+        shot.color ?? '#ff003c'
+    );
 
-            camera.shake(10, 0.2);
-            showCenterMessage('HIT', 0.65);
-        }
+    camera.shake(10, 0.2);
+    showCenterMessage('HIT', 0.65);
+}
     }
 
     for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
