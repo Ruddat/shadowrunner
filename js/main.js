@@ -339,7 +339,8 @@ function updateProjectiles(dt) {
 
         if (
             projectile.x < camera.x - 100 ||
-            projectile.x > camera.x + CONFIG.width + 100
+            projectile.x > camera.x + CONFIG.width + 100 ||
+            projectile.y > CONFIG.height + 120
         ) {
             projectile.active = false;
             continue;
@@ -349,6 +350,11 @@ function updateProjectiles(dt) {
             if (enemy.active === false) continue;
 
             if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
+                if (projectile.weaponId === WEAPON_IDS.PLASMA) {
+                    explodePlasmaProjectile(projectile);
+                    continue;
+                }
+
                 projectile.markHit(enemy);
 
                 spawnParticles(
@@ -356,7 +362,7 @@ function updateProjectiles(dt) {
                     enemy.y + enemy.height / 2,
                     projectile.weaponId === WEAPON_IDS.LASER ? 24 : 14,
                     projectile.color ?? '#ff003c'
-                )
+                );
 
                 camera.shake(5, 0.14);
 
@@ -365,12 +371,12 @@ function updateProjectiles(dt) {
                 if (enemy.health <= 0) {
                     enemy.active = false;
 
-spawnParticles(
-    enemy.x + enemy.width / 2,
-    enemy.y + enemy.height / 2,
-    projectile.weaponId === WEAPON_IDS.LASER ? 44 : 28,
-    projectile.color ?? '#ff2bd6'
-);
+                    spawnParticles(
+                        enemy.x + enemy.width / 2,
+                        enemy.y + enemy.height / 2,
+                        projectile.weaponId === WEAPON_IDS.LASER ? 44 : 28,
+                        projectile.color ?? '#ff2bd6'
+                    );
 
                     camera.shake(9, 0.22);
                     messageTimer = 0.6;
@@ -388,15 +394,20 @@ spawnParticles(
             projectile.active !== false &&
             rectsOverlap(projectile, boss)
         ) {
+            if (projectile.weaponId === WEAPON_IDS.PLASMA) {
+                explodePlasmaProjectile(projectile);
+                continue;
+            }
+
             projectile.markHit(boss);
             boss.health -= projectile.damage;
 
-spawnParticles(
-    boss.x + boss.width / 2,
-    boss.y + boss.height / 2,
-    projectile.weaponId === WEAPON_IDS.LASER ? 30 : 18,
-    projectile.color ?? '#facc15'
-);
+            spawnParticles(
+                boss.x + boss.width / 2,
+                boss.y + boss.height / 2,
+                projectile.weaponId === WEAPON_IDS.LASER ? 30 : 18,
+                projectile.color ?? '#facc15'
+            );
 
             camera.shake(7, 0.12);
 
@@ -424,7 +435,113 @@ spawnParticles(
     }
 }
 
+function explodePlasmaProjectile(projectile) {
+    if (projectile.active === false) return;
 
+    const centerX = projectile.x + projectile.width / 2;
+    const centerY = projectile.y + projectile.height / 2;
+    const radius = getPlasmaExplosionRadius(projectile);
+
+    projectile.active = false;
+
+    spawnParticles(
+        centerX,
+        centerY,
+        projectile.weaponLevel >= 3 ? 80 : projectile.weaponLevel === 2 ? 60 : 42,
+        projectile.color ?? '#fb7185'
+    );
+
+    damageEnemiesInRadius(centerX, centerY, radius, projectile.damage);
+    damageBossInRadius(centerX, centerY, radius, projectile.damage);
+
+    camera.shake(projectile.weaponLevel >= 3 ? 18 : 12, 0.28);
+    messageTimer = 0.55;
+}
+
+function getPlasmaExplosionRadius(projectile) {
+    if (projectile.weaponLevel >= 3) return 110;
+    if (projectile.weaponLevel === 2) return 88;
+
+    return 68;
+}
+
+function damageEnemiesInRadius(centerX, centerY, radius, damage) {
+    for (const enemy of currentLevel.enemies) {
+        if (enemy.active === false) continue;
+
+        const enemyCenterX = enemy.x + enemy.width / 2;
+        const enemyCenterY = enemy.y + enemy.height / 2;
+
+        const dx = enemyCenterX - centerX;
+        const dy = enemyCenterY - centerY;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > radius) continue;
+
+        const falloff = Math.max(0.45, 1 - distance / radius);
+        const finalDamage = damage * falloff;
+
+        enemy.health = (enemy.health ?? 1) - finalDamage;
+
+        spawnParticles(
+            enemyCenterX,
+            enemyCenterY,
+            18,
+            '#fb7185'
+        );
+
+        if (enemy.health <= 0) {
+            enemy.active = false;
+
+            spawnParticles(
+                enemyCenterX,
+                enemyCenterY,
+                34,
+                '#ff2bd6'
+            );
+        }
+    }
+}
+
+function damageBossInRadius(centerX, centerY, radius, damage) {
+    const boss = currentLevel.boss;
+
+    if (!boss || boss.active === false) return;
+
+    const bossCenterX = boss.x + boss.width / 2;
+    const bossCenterY = boss.y + boss.height / 2;
+
+    const dx = bossCenterX - centerX;
+    const dy = bossCenterY - centerY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > radius + boss.width / 2) return;
+
+    const falloff = Math.max(0.5, 1 - distance / (radius + boss.width / 2));
+    boss.health -= damage * falloff;
+
+    spawnParticles(
+        bossCenterX,
+        bossCenterY,
+        28,
+        '#fb7185'
+    );
+
+    if (boss.health <= 0) {
+        boss.active = false;
+        currentLevel.exit.locked = false;
+
+        spawnParticles(
+            bossCenterX,
+            bossCenterY,
+            70,
+            '#ff2bd6'
+        );
+
+        camera.shake(18, 0.5);
+        messageTimer = 1.2;
+    }
+}
 
 function updateExit() {
     if (player.levelComplete) return;
