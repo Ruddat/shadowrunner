@@ -72,6 +72,7 @@ const player = new Player(currentLevel.spawn.x, currentLevel.spawn.y);
 const camera = new Camera();
 const projectiles = [];
 const bossProjectiles = [];
+const enemyProjectiles = [];
 
 initializeLevelState(currentLevel);
 
@@ -118,6 +119,10 @@ function initializeLevelState(level) {
             enemy.maxHealth = enemy.maxHealth ?? enemy.health ?? 1;
             enemy.health = enemy.maxHealth;
             enemy.active = true;
+
+            if (enemy.canShoot) {
+                enemy.shootTimer = enemy.shootDelay ?? 1.2;
+            }
         }
     }
 
@@ -190,15 +195,15 @@ function update(dt) {
         }
     }
 
-updateCenterMessage(dt);
+    updateCenterMessage(dt);
 
-if (weaponHudPulse > 0) {
-    weaponHudPulse -= dt;
+    if (weaponHudPulse > 0) {
+        weaponHudPulse -= dt;
 
-    if (weaponHudPulse < 0) {
-        weaponHudPulse = 0;
+        if (weaponHudPulse < 0) {
+            weaponHudPulse = 0;
+        }
     }
-}
 
 }
 
@@ -728,6 +733,7 @@ function loadNextLevel() {
 
     projectiles.length = 0;
     bossProjectiles.length = 0;
+    enemyProjectiles.length = 0;
 
     initializeLevelState(currentLevel);
 
@@ -878,22 +884,22 @@ function drawHud() {
 
     ctx.restore();
 
-if (player.levelComplete) {
-    drawCenterMessage('LEVEL COMPLETE', {
-        y: 118,
-        alpha: 1,
-    });
-} else if (messageTimer > 0 && player.invincibleTimer > 0) {
-    drawCenterMessage('HIT', {
-        y: centerMessageY || 118,
-        alpha: centerMessageAlpha,
-    });
-} else if (messageTimer > 0 && centerMessage) {
-    drawCenterMessage(centerMessage, {
-        y: centerMessageY,
-        alpha: centerMessageAlpha,
-    });
-}
+    if (player.levelComplete) {
+        drawCenterMessage('LEVEL COMPLETE', {
+            y: 118,
+            alpha: 1,
+        });
+    } else if (messageTimer > 0 && player.invincibleTimer > 0) {
+        drawCenterMessage('HIT', {
+            y: centerMessageY || 118,
+            alpha: centerMessageAlpha,
+        });
+    } else if (messageTimer > 0 && centerMessage) {
+        drawCenterMessage(centerMessage, {
+            y: centerMessageY,
+            alpha: centerMessageAlpha,
+        });
+    }
 
 }
 
@@ -1189,15 +1195,127 @@ function updateEnemies(dt) {
             enemy.direction = -1;
         }
 
+        updateEnemyShooter(enemy, dt);
+
         if (rectsOverlap(player, enemy)) {
             player.hit(currentLevel);
             spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 22, '#facc15');
             camera.shake(12, 0.25);
-            messageTimer = 0.9;
+            showCenterMessage('HIT', 0.65);
         }
     }
 }
 
+function updateEnemyShooter(enemy, dt) {
+    if (!enemy.canShoot) return;
+
+    const distanceX = Math.abs((enemy.x + enemy.width / 2) - (player.x + player.width / 2));
+    const distanceY = Math.abs((enemy.y + enemy.height / 2) - (player.y + player.height / 2));
+
+    const rangeX = enemy.shootRangeX ?? 520;
+    const rangeY = enemy.shootRangeY ?? 160;
+
+    if (distanceX > rangeX || distanceY > rangeY) {
+        return;
+    }
+
+    enemy.shootTimer -= dt;
+
+    if (enemy.shootTimer > 0) {
+        return;
+    }
+
+    shootEnemyProjectile(enemy);
+    enemy.shootTimer = enemy.shootDelay ?? 1.4;
+}
+
+function shootEnemyProjectile(enemy) {
+    const enemyCenterX = enemy.x + enemy.width / 2;
+    const enemyCenterY = enemy.y + enemy.height / 2;
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    const dx = playerCenterX - enemyCenterX;
+    const dy = playerCenterY - enemyCenterY;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+
+    const speed = enemy.projectileSpeed ?? 330;
+
+    enemyProjectiles.push({
+        x: enemyCenterX,
+        y: enemyCenterY,
+        width: enemy.projectileWidth ?? 18,
+        height: enemy.projectileHeight ?? 8,
+        vx: (dx / distance) * speed,
+        vy: (dy / distance) * speed,
+        damage: enemy.projectileDamage ?? 1,
+        color: enemy.projectileColor ?? '#ff003c',
+        glow: enemy.projectileGlow ?? '#ff003c',
+        active: true,
+    });
+
+    spawnParticles(enemyCenterX, enemyCenterY, 8, enemy.projectileColor ?? '#ff003c');
+}
+
+function updateEnemyProjectiles(dt) {
+    for (const shot of enemyProjectiles) {
+        if (!shot.active) continue;
+
+        shot.x += shot.vx * dt;
+        shot.y += shot.vy * dt;
+
+        if (
+            shot.x < camera.x - 120 ||
+            shot.x > camera.x + CONFIG.width + 120 ||
+            shot.y < -120 ||
+            shot.y > CONFIG.height + 160
+        ) {
+            shot.active = false;
+            continue;
+        }
+
+        if (rectsOverlap(player, shot)) {
+            shot.active = false;
+            player.hit(currentLevel);
+
+            spawnParticles(
+                player.x + player.width / 2,
+                player.y + player.height / 2,
+                22,
+                shot.color ?? '#ff003c'
+            );
+
+            camera.shake(10, 0.2);
+            showCenterMessage('HIT', 0.65);
+        }
+    }
+
+    for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+        if (!enemyProjectiles[i].active) {
+            enemyProjectiles.splice(i, 1);
+        }
+    }
+}
+
+function drawEnemyProjectiles() {
+    for (const shot of enemyProjectiles) {
+        const x = shot.x - camera.x;
+        const y = shot.y - camera.y;
+
+        ctx.save();
+
+        ctx.shadowColor = shot.glow ?? '#ff003c';
+        ctx.shadowBlur = 18;
+
+        ctx.fillStyle = shot.color ?? '#ff003c';
+        ctx.fillRect(x, y, shot.width, shot.height);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 3, y + 2, Math.max(2, shot.width - 6), 2);
+
+        ctx.restore();
+    }
+}
 
 function drawBonusBlocks() {
     if (!currentLevel.bonusBlocks) return;
@@ -1335,6 +1453,7 @@ function render() {
     drawEnemies();
     drawBoss();
     drawBossProjectiles();
+    drawEnemyProjectiles();
     drawProjectiles();
     drawParticles(ctx, camera);
     player.draw(ctx, camera);
