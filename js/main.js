@@ -293,7 +293,7 @@ function updateBoss(dt) {
     }
 
     if (rectsOverlap(player, boss)) {
-        player.hit(currentLevel);
+        player.hit(currentLevel, 45);
         camera.shake(14, 0.25);
         messageTimer = 0.8;
     }
@@ -306,6 +306,7 @@ function shootBossProjectile(boss) {
         width: 26,
         height: 12,
         speed: boss.phase === 2 ? 420 : 340,
+        damage: boss.phase === 2 ? 40 : 30,
         active: true,
     });
 }
@@ -322,7 +323,7 @@ function updateBossProjectiles(dt) {
 
         if (rectsOverlap(player, shot)) {
             shot.active = false;
-            player.hit(currentLevel);
+            player.hit(currentLevel, shot.damage ?? 35);
             spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 20, '#ff003c');
             camera.shake(12, 0.22);
             messageTimer = 0.8;
@@ -1199,7 +1200,7 @@ function updateEnemies(dt) {
         updateEnemyShooter(enemy, dt);
 
         if (rectsOverlap(player, enemy)) {
-            player.hit(currentLevel);
+            player.hit(currentLevel, enemy.contactDamage ?? 30);
             spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 22, '#facc15');
             camera.shake(12, 0.25);
             showCenterMessage('HIT', 0.65);
@@ -1249,7 +1250,7 @@ function shootEnemyProjectile(enemy) {
         height: enemy.projectileHeight ?? 8,
         vx: (dx / distance) * speed,
         vy: (dy / distance) * speed,
-        damage: enemy.projectileDamage ?? 1,
+        damage: enemy.projectileDamage ?? 20,
         color: enemy.projectileColor ?? '#ff003c',
         glow: enemy.projectileGlow ?? '#ff003c',
         active: true,
@@ -1277,7 +1278,7 @@ function updateEnemyProjectiles(dt) {
 
         if (rectsOverlap(player, shot)) {
             shot.active = false;
-            player.hit(currentLevel);
+            player.hit(currentLevel, enemy.contactDamage ?? 30);
 
             spawnParticles(
                 player.x + player.width / 2,

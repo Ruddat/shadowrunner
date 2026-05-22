@@ -108,23 +108,33 @@ export class Player {
     }
 
 
-    hit(level) {
-        if (this.invincibleTimer > 0) return;
+hit(level, damage = 25) {
+    if (this.invincibleTimer > 0) return;
 
-        this.lives--;
-        this.invincibleTimer = 1.2;
+    this.energy = Math.max(0, this.energy - damage);
+    this.invincibleTimer = 1.0;
 
-        if (this.lives <= 0) {
-            this.lives = 3;
-            this.gems = 0;
-
-            for (const gem of level.gems) {
-                gem.collected = false;
-            }
-        }
-
-        this.respawn(level);
+    // Solange noch Energie da ist: kein Leben verlieren, kein Respawn.
+    if (this.energy > 0) {
+        return;
     }
+
+    this.lives--;
+    this.energy = 100;
+    this.invincibleTimer = 1.4;
+
+    if (this.lives <= 0) {
+        this.lives = 3;
+        this.energy = 100;
+        this.gems = 0;
+
+        for (const gem of level.gems) {
+            gem.collected = false;
+        }
+    }
+
+    this.respawn(level);
+}
 
 shoot(projectiles) {
     if (this.shootCooldown > 0) return;
