@@ -14,6 +14,7 @@ import {
     drawFloatingItems,
     POWERUP_TYPES,
 } from './powerups.js';
+import { getWeaponDisplayName, WEAPON_IDS } from './weapons.js';
 
 import {
     initLevelFx,
@@ -95,10 +96,10 @@ function update(dt) {
         updateTitleScreen(dt);
         return;
     }
-if (gameState === 'credits') {
-    updateCreditsScreen(dt);
-    return;
-}
+    if (gameState === 'credits') {
+        updateCreditsScreen(dt);
+        return;
+    }
     player.update(dt, currentLevel);
 
     if (keys.shoot) {
@@ -261,8 +262,9 @@ function updatePowerupPickup() {
         }
 
         if (item.type === POWERUP_TYPES.WEAPON) {
-            player.weaponLevel = Math.min(player.weaponLevel + 1, 3);
+            player.setWeapon(item.weaponId);
             messageTimer = 0.8;
+            return;
         }
     }
 }
@@ -274,12 +276,18 @@ function updateBonusBlockSpawns() {
     for (const block of currentLevel.bonusBlocks) {
         if (!block.spawnRequest) continue;
 
-        const reward = resolveReward(block.spawnRequest.reward);
+        const reward = resolveReward(
+            block.spawnRequest.reward,
+            block.spawnRequest.randomPool
+        );
 
         spawnFloatingItem(
             block.spawnRequest.x,
             block.spawnRequest.y,
-            reward
+            reward,
+            {
+                weaponId: block.spawnRequest.weaponId,
+            }
         );
 
         block.spawnRequest = null;
@@ -301,8 +309,8 @@ function updateProjectiles(dt) {
         for (const enemy of currentLevel.enemies) {
             if (enemy.active === false) continue;
 
-            if (rectsOverlap(projectile, enemy)) {
-                projectile.active = false;
+if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
+    projectile.markHit(enemy);
 
                 spawnParticles(
                     enemy.x + enemy.width / 2,
@@ -341,8 +349,8 @@ function updateProjectiles(dt) {
             projectile.active !== false &&
             rectsOverlap(projectile, boss)
         ) {
-            projectile.active = false;
-            boss.health -= projectile.damage;
+projectile.markHit(boss);
+boss.health -= projectile.damage;
 
             spawnParticles(
                 boss.x + boss.width / 2,
@@ -402,11 +410,11 @@ function loadNextLevel() {
     currentLevel = getLevel(currentLevelIndex);
     levelBackground.src = currentLevel.background;
 
-levelBackground.src = currentLevel.background;
+    levelBackground.src = currentLevel.background;
 
-if (currentLevel.music) {
-    playMusic(currentLevel.music);
-}
+    if (currentLevel.music) {
+        playMusic(currentLevel.music);
+    }
 
 
     player.x = currentLevel.spawn.x;
@@ -783,12 +791,13 @@ function drawBottomPanel() {
     drawBottomHudValues(x, y, hudWidth, hudHeight);
 }
 
-function getWeaponName() {
-    if (player.weaponLevel >= 3) return 'PLASMA BLASTER';
-    if (player.weaponLevel === 2) return 'PULSE BLASTER';
-
-    return 'BASIC SHOT';
-}
+    if (gameState === 'playing') {
+        if (e.code === 'Digit1') player.setWeapon(WEAPON_IDS.BLASTER);
+        if (e.code === 'Digit2') player.setWeapon(WEAPON_IDS.SPREAD);
+        if (e.code === 'Digit3') player.setWeapon(WEAPON_IDS.LASER);
+        if (e.code === 'Digit4') player.setWeapon(WEAPON_IDS.WAVE);
+        if (e.code === 'Digit5') player.setWeapon(WEAPON_IDS.BOUNCE);
+    }
 
 
 function drawBottomHudValues(x, y, hudWidth, hudHeight) {
@@ -991,10 +1000,10 @@ function render() {
         return;
     }
 
-if (gameState === 'credits') {
-    drawCreditsScreen(ctx);
-    return;
-}
+    if (gameState === 'credits') {
+        drawCreditsScreen(ctx);
+        return;
+    }
 
     drawBackground();
     drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
@@ -1038,12 +1047,12 @@ window.addEventListener('keydown', (e) => {
     if (gameState === 'title') {
         const action = handleTitleKey(e.code);
 
-if (action === 'CREDITS') {
-    initCreditsScreen();
-    stopMusic();
-    playMusic('credits');
-    gameState = 'credits';
-}
+        if (action === 'CREDITS') {
+            initCreditsScreen();
+            stopMusic();
+            playMusic('credits');
+            gameState = 'credits';
+        }
 
         if (action === 'NEW GAME') {
             stopMusic();
@@ -1054,12 +1063,12 @@ if (action === 'CREDITS') {
         return;
     }
 
-if (gameState === 'credits' && e.code === 'Escape') {
-    stopMusic();
-    playMusic('title');
-    gameState = 'title';
-    return;
-}
+    if (gameState === 'credits' && e.code === 'Escape') {
+        stopMusic();
+        playMusic('title');
+        gameState = 'title';
+        return;
+    }
 
 
 });

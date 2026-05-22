@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { keys } from './input.js';
 import { resolvePlatformCollision } from './collision.js';
 import { Projectile } from './projectile.js';
+import { getWeaponStats, isValidWeaponId, WEAPON_IDS } from './weapons.js';
 
 export class Player {
     constructor(x, y) {
@@ -24,6 +25,7 @@ export class Player {
         this.shootCooldown = 0;
 
         this.energy = 100;
+        this.weaponId = WEAPON_IDS.BLASTER;
         this.weaponLevel = 1;
 
         this.gems = 0;
@@ -83,6 +85,8 @@ export class Player {
                             x: block.x + 7,
                             y: block.y - 4,
                             reward: block.reward,
+                            weaponId: block.weaponId ?? null,
+                            randomPool: block.randomPool ?? null,
                         };
                     }
                 }
@@ -121,20 +125,53 @@ export class Player {
         this.respawn(level);
     }
 
-    shoot(projectiles) {
-        if (this.shootCooldown > 0) return;
+shoot(projectiles) {
+    if (this.shootCooldown > 0) return;
 
-        const x = this.facing === 1
-            ? this.x + this.width
-            : this.x - 22;
+    const weapon = getWeaponStats(this.weaponId, this.weaponLevel);
 
-        const y = this.y + 32;
+    const startX = this.facing === 1
+        ? this.x + this.width
+        : this.x - weapon.width;
 
-        projectiles.push(new Projectile(x, y, this.facing, this.weaponLevel));
+    const startY = this.y + 32;
 
-        this.shootCooldown = 0.25;
+    const bulletCount = weapon.bullets ?? 1;
+    const centerIndex = (bulletCount - 1) / 2;
+
+    for (let i = 0; i < bulletCount; i++) {
+        const angleOffset = (i - centerIndex) * (weapon.spread ?? 0);
+
+        projectiles.push(
+            new Projectile(
+                startX,
+                startY,
+                this.facing,
+                this.weaponId,
+                this.weaponLevel,
+                angleOffset
+            )
+        );
     }
 
+    this.shootCooldown = weapon.fireRate;
+}
+
+setWeapon(weaponId) {
+    if (!isValidWeaponId(weaponId)) return;
+
+    if (this.weaponId === weaponId) {
+        this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
+        return;
+    }
+
+    this.weaponId = weaponId;
+    this.weaponLevel = 1;
+}
+
+upgradeWeapon() {
+    this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
+}
 
     respawn(level) {
         this.x = level.spawn.x;
