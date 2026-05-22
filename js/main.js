@@ -12,6 +12,7 @@ import {
     spawnFloatingItem,
     updateFloatingItems,
     drawFloatingItems,
+    getPowerupColor,
     POWERUP_TYPES,
 } from './powerups.js';
 import { getWeaponDisplayName, WEAPON_IDS } from './weapons.js';
@@ -281,6 +282,7 @@ function updatePowerupPickup() {
         if (!rectsOverlap(player, item)) continue;
 
         item.active = false;
+        burstPowerupPickup(item);
 
         if (item.type === POWERUP_TYPES.GEM) {
             player.gems++;
@@ -306,6 +308,30 @@ function updatePowerupPickup() {
             return;
         }
     }
+}
+
+
+function burstPowerupPickup(item) {
+    const color = getPowerupColor(item);
+
+    spawnParticles(
+        item.x + item.width / 2,
+        item.y + item.height / 2,
+        item.type === POWERUP_TYPES.WEAPON ? 36 : 22,
+        color
+    );
+
+    if (item.type === POWERUP_TYPES.WEAPON) {
+        camera.shake(8, 0.18);
+        return;
+    }
+
+    if (item.type === POWERUP_TYPES.LIFE) {
+        camera.shake(6, 0.16);
+        return;
+    }
+
+    camera.shake(4, 0.12);
 }
 
 
