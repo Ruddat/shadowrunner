@@ -3,6 +3,7 @@ import { keys } from './input.js';
 import { resolvePlatformCollision } from './collision.js';
 import { Projectile } from './projectile.js';
 import { getWeaponStats, isValidWeaponId, WEAPON_IDS } from './weapons.js';
+import { playSound } from './audioManager.js';
 
 export class Player {
     constructor(x, y) {
@@ -153,9 +154,39 @@ shoot(projectiles) {
             )
         );
     }
-
+    this.playWeaponSound();
     this.shootCooldown = weapon.fireRate;
 }
+
+playWeaponSound() {
+    if (this.weaponId === WEAPON_IDS.SPREAD) {
+        playSound('shootSpread');
+        return;
+    }
+
+    if (this.weaponId === WEAPON_IDS.LASER) {
+        playSound('shootLaser');
+        return;
+    }
+
+    if (this.weaponId === WEAPON_IDS.WAVE) {
+        playSound('shootWave');
+        return;
+    }
+
+    if (this.weaponId === WEAPON_IDS.BOUNCE) {
+        playSound('shootBounce');
+        return;
+    }
+
+    if (this.weaponId === WEAPON_IDS.PLASMA) {
+        playSound('shootPlasma');
+        return;
+    }
+
+    playSound('shootBlaster');
+}
+
 
 setWeapon(weaponId) {
     if (!isValidWeaponId(weaponId)) return;

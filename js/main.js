@@ -92,6 +92,13 @@ registerSound('menuSelect', 'assets/audio/menu-select.mp3');
 registerSound('weaponPickup', 'assets/audio/weapon-pickup.mp3');
 registerSound('itemPickup', 'assets/audio/item-pickup.mp3');
 
+registerSound('shootBlaster', 'assets/audio/shoot-blaster.mp3');
+registerSound('shootSpread', 'assets/audio/shoot-spread.mp3');
+registerSound('shootLaser', 'assets/audio/shoot-laser.mp3');
+registerSound('shootWave', 'assets/audio/shoot-wave.mp3');
+registerSound('shootBounce', 'assets/audio/shoot-bounce.mp3');
+registerSound('shootPlasma', 'assets/audio/shoot-plasma.mp3');
+
 registerMusic('credits', 'assets/audio/credits-theme.mp3');
 
 initIntro();
