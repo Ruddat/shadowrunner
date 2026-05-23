@@ -19,9 +19,6 @@ Das Spiel ist direkt über GitHub Pages spielbar:
 
 ---
 
-
----
-
 ## 🎮 Spielkonzept
 
 Du steuerst einen Runner durch futuristische Neon-Level, sammelst Gems, findest Waffen-Upgrades, aktivierst Bonusblöcke und kämpfst dich durch Gegner bis zum Levelausgang.
@@ -52,6 +49,111 @@ Das Spiel setzt auf direkte Steuerung, schnelles Feedback, sichtbare Powerups un
 - Boss-Level mit Phasenlogik
 
 ---
+
+## 🧩 TODO / Entwicklungsplan
+
+### 🎮 Gameplay
+
+- [ ] Steuerung final abstimmen und dokumentieren
+- [ ] Trefferfeedback beim Spieler verbessern
+- [ ] Gegner-Kollisionen weiter verfeinern
+- [ ] Knockback / Rückstoß bei Treffern einbauen
+- [ ] Powerups stärker sichtbar machen
+- [ ] Bonusblöcke visuell klarer animieren
+- [ ] Waffen-Upgrades im Spiel besser erklären
+- [ ] Schwierigkeitskurve pro Level feiner ausbalancieren
+
+### 🔫 Waffen
+
+- [ ] Waffenwerte final balancen
+- [ ] Spread Shot optisch stärker machen
+- [ ] Laser mit besserem Impact-Effekt versehen
+- [ ] Plasma-Explosion erweitern
+- [ ] Bounce Shot besser visualisieren
+- [ ] Waffen-Level deutlicher im HUD anzeigen
+- [ ] seltene Spezialwaffe einbauen
+
+### 👾 Gegner & Bosskämpfe
+
+- [ ] neue Gegnertypen ergänzen
+- [ ] fliegende Gegner einbauen
+- [ ] Gegner mit Schild einbauen
+- [ ] Gegner mit Nahkampfangriff einbauen
+- [ ] Boss-Patterns erweitern
+- [ ] Boss-Treffer optisch stärker darstellen
+- [ ] Boss-Intro vor Kampfbeginn einbauen
+- [ ] Boss-Explosion nach Sieg verbessern
+
+### 🌆 Level & Content
+
+- [ ] Level 1 final polishen
+- [ ] Level 2 weiter ausbauen
+- [ ] Level 3 weiter ausbauen
+- [ ] Boss-Level verfeinern
+- [ ] neue Plattform-Layouts testen
+- [ ] mehr Collectibles platzieren
+- [ ] geheime Bereiche einbauen
+- [ ] Levelübergänge verbessern
+
+### ⚡ Effekte & Atmosphäre
+
+- [ ] Explosionen erweitern
+- [ ] Partikeleffekte ausbauen
+- [ ] Screen Shake bei starken Treffern einbauen
+- [ ] bessere Muzzle-Flashes für Waffen
+- [ ] Neon-Glow an wichtigen Objekten verstärken
+- [ ] Regen/Fog/Scanlines je Level optimieren
+- [ ] Parallax-Hintergründe prüfen
+
+### 🔊 Sound & Musik
+
+- [ ] weitere Schuss-Sounds ergänzen
+- [ ] Treffer-Sounds verbessern
+- [ ] Boss-Sounds ergänzen
+- [ ] Pickup-Sounds finalisieren
+- [ ] Level-Musik sauber loopen
+- [ ] Audio-Lautstärke zentral steuerbar machen
+- [ ] Mute-Funktion einbauen
+
+### 🖥️ UI / HUD
+
+- [ ] HUD weiter verfeinern
+- [ ] Lebensanzeige klarer darstellen
+- [ ] Waffenanzeige verbessern
+- [ ] Score-Anzeige ausbauen
+- [ ] Level-Complete-Screen polishen
+- [ ] Game-Over-Screen polishen
+- [ ] Pause-Menü einbauen
+
+### 💾 Progress & Highscore
+
+- [ ] Highscore-System einbauen
+- [ ] Initialen-Eingabe für Highscore ergänzen
+- [ ] Speicherung im Browser über localStorage
+- [ ] Top-10-Liste anzeigen
+- [ ] Fortschritt optional speichern
+- [ ] Reset-Funktion für Highscores
+
+### 📱 Kompatibilität
+
+- [ ] Mobile Darstellung prüfen
+- [ ] Touch-Steuerung testen
+- [ ] Vollbildmodus ergänzen
+- [ ] Browser-Kompatibilität prüfen
+- [ ] Performance auf schwächeren Geräten testen
+
+### 📦 GitHub / Release
+
+- [ ] README weiter verbessern
+- [ ] Screenshots ergänzen
+- [ ] Gameplay-GIF einbauen
+- [ ] GitHub Topics setzen
+- [ ] Repo-Beschreibung optimieren
+- [ ] Lizenzentscheidung treffen
+- [ ] erste spielbare Version als Release taggen
+
+---
+
 
 ## 🧱 Projektstruktur
 
