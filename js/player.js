@@ -30,7 +30,11 @@ export class Player {
         this.weaponLevel = 1;
 
         this.gems = 0;
+        this.isGameOver = false;
         this.levelComplete = false;
+
+        this.score = 0;
+        this.deathsThisLevel = 0;
     }
 
     update(dt, level) {
@@ -103,116 +107,116 @@ export class Player {
         resolvePlatformCollision(this, level.platforms);
 
         if (this.y > CONFIG.height + 300) {
-            this.respawn(level);
+            this.energy = 0;
+            this.hit(level, 999);
         }
     }
 
 
-hit(level, damage = 25) {
-    if (this.invincibleTimer > 0) return;
+    hit(level, damage = 25) {
+        if (this.isGameOver) return;
+        if (this.invincibleTimer > 0) return;
 
-    this.energy = Math.max(0, this.energy - damage);
-    this.invincibleTimer = 1.0;
+        this.energy = Math.max(0, this.energy - damage);
+        this.invincibleTimer = 1.0;
 
-    // Solange noch Energie da ist: kein Leben verlieren, kein Respawn.
-    if (this.energy > 0) {
-        return;
-    }
+        // Solange noch Energie da ist: kein Leben verlieren, kein Respawn.
+        if (this.energy > 0) {
+            return;
+        }
 
-    this.lives--;
-    this.energy = 100;
-    this.invincibleTimer = 1.4;
-
-    if (this.lives <= 0) {
-        this.lives = 3;
+        this.lives--;
+        this.deathsThisLevel++;
         this.energy = 100;
-        this.gems = 0;
+        this.invincibleTimer = 1.4;
 
-        for (const gem of level.gems) {
-            gem.collected = false;
+        if (this.lives <= 0) {
+            this.lives = 0;
+            this.energy = 0;
+            this.isGameOver = true;
+            return;
         }
+
+        this.respawn(level);
     }
 
-    this.respawn(level);
-}
+    shoot(projectiles) {
+        if (this.shootCooldown > 0) return;
 
-shoot(projectiles) {
-    if (this.shootCooldown > 0) return;
+        const weapon = getWeaponStats(this.weaponId, this.weaponLevel);
 
-    const weapon = getWeaponStats(this.weaponId, this.weaponLevel);
+        const startX = this.facing === 1
+            ? this.x + this.width
+            : this.x - weapon.width;
 
-    const startX = this.facing === 1
-        ? this.x + this.width
-        : this.x - weapon.width;
+        const startY = this.y + 32;
 
-    const startY = this.y + 32;
+        const bulletCount = weapon.bullets ?? 1;
+        const centerIndex = (bulletCount - 1) / 2;
 
-    const bulletCount = weapon.bullets ?? 1;
-    const centerIndex = (bulletCount - 1) / 2;
+        for (let i = 0; i < bulletCount; i++) {
+            const angleOffset = (i - centerIndex) * (weapon.spread ?? 0);
 
-    for (let i = 0; i < bulletCount; i++) {
-        const angleOffset = (i - centerIndex) * (weapon.spread ?? 0);
-
-        projectiles.push(
-            new Projectile(
-                startX,
-                startY,
-                this.facing,
-                this.weaponId,
-                this.weaponLevel,
-                angleOffset
-            )
-        );
-    }
-    this.playWeaponSound();
-    this.shootCooldown = weapon.fireRate;
-}
-
-playWeaponSound() {
-    if (this.weaponId === WEAPON_IDS.SPREAD) {
-        playSound('shootSpread');
-        return;
+            projectiles.push(
+                new Projectile(
+                    startX,
+                    startY,
+                    this.facing,
+                    this.weaponId,
+                    this.weaponLevel,
+                    angleOffset
+                )
+            );
+        }
+        this.playWeaponSound();
+        this.shootCooldown = weapon.fireRate;
     }
 
-    if (this.weaponId === WEAPON_IDS.LASER) {
-        playSound('shootLaser');
-        return;
+    playWeaponSound() {
+        if (this.weaponId === WEAPON_IDS.SPREAD) {
+            playSound('shootSpread');
+            return;
+        }
+
+        if (this.weaponId === WEAPON_IDS.LASER) {
+            playSound('shootLaser');
+            return;
+        }
+
+        if (this.weaponId === WEAPON_IDS.WAVE) {
+            playSound('shootWave');
+            return;
+        }
+
+        if (this.weaponId === WEAPON_IDS.BOUNCE) {
+            playSound('shootBounce');
+            return;
+        }
+
+        if (this.weaponId === WEAPON_IDS.PLASMA) {
+            playSound('shootPlasma');
+            return;
+        }
+
+        playSound('shootBlaster');
     }
 
-    if (this.weaponId === WEAPON_IDS.WAVE) {
-        playSound('shootWave');
-        return;
+
+    setWeapon(weaponId) {
+        if (!isValidWeaponId(weaponId)) return;
+
+        if (this.weaponId === weaponId) {
+            this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
+            return;
+        }
+
+        this.weaponId = weaponId;
+        this.weaponLevel = 1;
     }
 
-    if (this.weaponId === WEAPON_IDS.BOUNCE) {
-        playSound('shootBounce');
-        return;
-    }
-
-    if (this.weaponId === WEAPON_IDS.PLASMA) {
-        playSound('shootPlasma');
-        return;
-    }
-
-    playSound('shootBlaster');
-}
-
-
-setWeapon(weaponId) {
-    if (!isValidWeaponId(weaponId)) return;
-
-    if (this.weaponId === weaponId) {
+    upgradeWeapon() {
         this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
-        return;
     }
-
-    this.weaponId = weaponId;
-    this.weaponLevel = 1;
-}
-
-upgradeWeapon() {
-    this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
-}
 
     respawn(level) {
         this.x = level.spawn.x;

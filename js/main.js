@@ -88,6 +88,7 @@ let weaponHudPulse = 0;
 let gameState = 'intro';
 let introTime = 0;
 let levelStats = null;
+let gameOverStats = null;
 
 const LEVEL_COMPLETE_UI = {
     panel: {
@@ -147,6 +148,7 @@ registerMusic('title', 'assets/audio/title-theme.mp3');
 registerMusic('level1', 'assets/audio/level1-theme.mp3');
 registerMusic('level4', 'assets/audio/level4-boss-theme.mp3');
 registerMusic('levelComplete', 'assets/audio/level-complete.mp3', false);
+registerMusic('gameOver', 'assets/audio/game-over.mp3', false);
 
 
 registerSound('menuMove', 'assets/audio/menu-move.mp3');
@@ -256,6 +258,31 @@ function initializeLevelState(level) {
 
 levelStats = createLevelStats(currentLevel);
 
+function triggerGameOver() {
+    if (gameState === 'gameOver') return;
+
+    gameOverStats = {
+        levelName: currentLevel.name ?? 'UNKNOWN LEVEL',
+        score: player.score ?? 0,
+        gems: player.gems ?? 0,
+        reachedLevel: currentLevelIndex + 1,
+        enemiesDefeated: currentLevel.enemies
+            ? currentLevel.enemies.filter(enemy => enemy.active === false).length
+            : 0,
+        enemiesTotal: currentLevel.enemies?.length ?? 0,
+    };
+
+    projectiles.length = 0;
+    bossProjectiles.length = 0;
+    enemyProjectiles.length = 0;
+
+    stopMusic();
+    playMusic('gameOver');
+
+    gameState = 'gameOver';
+}
+
+
 function update(dt) {
     if (gameState === 'intro') {
         updateIntro(dt);
@@ -271,6 +298,12 @@ function update(dt) {
         return;
     }
     player.update(dt, currentLevel);
+
+    if (player.isGameOver) {
+        triggerGameOver();
+        return;
+    }
+
 
     if (keys.shoot) {
         player.shoot(projectiles);
@@ -840,6 +873,94 @@ function updateExit() {
             completeLevel({ bossDefeated: false });
         }, 500);
     }
+}
+
+function drawGameOverScreen() {
+    const stats = gameOverStats ?? {
+        levelName: currentLevel.name ?? 'UNKNOWN LEVEL',
+        score: player.score ?? 0,
+        gems: player.gems ?? 0,
+        reachedLevel: currentLevelIndex + 1,
+        enemiesDefeated: 0,
+        enemiesTotal: currentLevel.enemies?.length ?? 0,
+    };
+
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
+    ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+    const panelWidth = 620;
+    const panelHeight = 390;
+    const panelX = CONFIG.width / 2 - panelWidth / 2;
+    const panelY = 92;
+
+    ctx.shadowColor = '#ff003c';
+    ctx.shadowBlur = 32;
+
+    ctx.fillStyle = 'rgba(8, 3, 12, 0.96)';
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+
+    ctx.strokeStyle = '#ff003c';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+
+    ctx.shadowBlur = 0;
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff003c';
+    ctx.font = '900 54px monospace';
+    ctx.fillText('GAME OVER', CONFIG.width / 2, panelY + 78);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 22px monospace';
+    ctx.fillText(stats.levelName, CONFIG.width / 2, panelY + 118);
+
+    const left = panelX + 130;
+    const right = panelX + panelWidth - 130;
+    let y = panelY + 175;
+
+    drawGameOverRow('STAGE', `${stats.reachedLevel}`, '#21e6ff', left, right, y);
+    y += 38;
+
+    drawGameOverRow('SCORE', `${stats.score}`, '#facc15', left, right, y);
+    y += 38;
+
+    drawGameOverRow('GEMS', `${stats.gems}`, '#ff2bd6', left, right, y);
+    y += 38;
+
+    drawGameOverRow(
+        'ENEMIES',
+        `${stats.enemiesDefeated} / ${stats.enemiesTotal}`,
+        '#fb7185',
+        left,
+        right,
+        y
+    );
+
+    y += 72;
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 18px monospace';
+    ctx.fillText('PRESS ENTER OR CLICK TO RETRY', CONFIG.width / 2, y);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 14px monospace';
+    ctx.fillText('PRESS ESC FOR TITLE SCREEN', CONFIG.width / 2, y + 28);
+
+    ctx.restore();
+}
+
+function drawGameOverRow(label, value, color, left, right, y) {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = color;
+    ctx.font = '900 20px monospace';
+    ctx.fillText(label, left, y);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(value, right, y);
 }
 
 function drawLevelCompleteScreen() {
@@ -1740,6 +1861,23 @@ function render() {
         return;
     }
 
+    if (gameState === 'gameOver') {
+        drawBackground();
+        drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
+        drawPlatforms();
+        drawGems();
+        drawExit();
+        drawEnemies();
+        drawBoss();
+        drawParticles(ctx, camera);
+        player.draw(ctx, camera);
+        drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
+
+        drawGameOverScreen();
+        return;
+    }
+
+
     if (gameState === 'levelComplete') {
         drawBackground();
         drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
@@ -1778,6 +1916,46 @@ function render() {
     drawHud();
 
 }
+
+
+function retryCurrentLevel() {
+    stopMusic();
+
+    player.x = currentLevel.spawn.x;
+    player.y = currentLevel.spawn.y;
+    player.prevY = currentLevel.spawn.y;
+    player.velocityX = 0;
+    player.velocityY = 0;
+
+    player.lives = 3;
+    player.energy = 100;
+    player.invincibleTimer = 0;
+    player.shootCooldown = 0;
+
+    player.weaponId = WEAPON_IDS.BLASTER;
+    player.weaponLevel = 1;
+
+    player.gems = 0;
+    player.levelComplete = false;
+    player.isGameOver = false;
+    player.deathsThisLevel = 0;
+
+    projectiles.length = 0;
+    bossProjectiles.length = 0;
+    enemyProjectiles.length = 0;
+    floatingItems.length = 0;
+
+    initializeLevelState(currentLevel);
+    levelStats = createLevelStats(currentLevel);
+    gameOverStats = null;
+
+    camera.x = 0;
+    camera.y = 0;
+
+    playMusic(currentLevel.music ?? 'level1');
+    gameState = 'playing';
+}
+
 
 function switchWeaponForDebug(weaponId) {
     player.setWeapon(weaponId);
@@ -1844,6 +2022,19 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
+    if (gameState === 'gameOver') {
+    if (e.code === 'Enter' || e.code === 'Space') {
+        retryCurrentLevel();
+        return;
+    }
+
+    if (e.code === 'Escape') {
+        stopMusic();
+        gameState = 'title';
+        playMusic('title');
+        return;
+    }
+}
 
     if (gameState === 'playing') {
         if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
@@ -1880,6 +2071,10 @@ canvas.addEventListener('click', () => {
         return;
     }
 
+    if (gameState === 'gameOver') {
+        retryCurrentLevel();
+        return;
+    }
 
 
 });
