@@ -89,6 +89,59 @@ let gameState = 'intro';
 let introTime = 0;
 let levelStats = null;
 
+const LEVEL_COMPLETE_UI = {
+    panel: {
+        width: 640,
+        height: 460,
+        y: 48,
+        background: 'rgba(5, 5, 16, 0.95)',
+        border: '#21e6ff',
+        shadow: '#21e6ff',
+    },
+
+    title: {
+        y: 112,
+        color: '#ff2bd6',
+        font: '900 42px monospace',
+        text: 'LEVEL COMPLETE',
+    },
+
+    subtitle: {
+        y: 154,
+        color: '#ffffff',
+        font: '900 21px monospace',
+    },
+
+    rows: {
+        startY: 205,
+        gap: 32,
+        bonusGap: 42,
+        leftOffset: 230,
+        valueOffset: 230,
+        font: '900 18px monospace',
+    },
+
+    total: {
+        y: 460,
+        height: 44,
+        background: 'rgba(255, 255, 255, 0.12)',
+        labelColor: '#ffffff',
+        valueColor: '#21e6ff',
+        font: '900 24px monospace',
+    },
+
+    footer: {
+        y: 500,
+        color: '#ffffff',
+        subColor: '#94a3b8',
+        font: '900 16px monospace',
+        subFont: '700 14px monospace',
+        text: 'PRESS ENTER OR CLICK TO NEXT LEVEL',
+    },
+};
+
+
+
 
 registerMusic('title', 'assets/audio/title-theme.mp3');
 registerMusic('level1', 'assets/audio/level1-theme.mp3');
@@ -128,8 +181,45 @@ function createLevelStats(level) {
     };
 }
 
+function calculateLevelScore() {
+    const completedMs = levelStats?.completedAt && levelStats?.startedAt
+        ? levelStats.completedAt - levelStats.startedAt
+        : 0;
+
+    const seconds = Math.max(1, Math.floor(completedMs / 1000));
+
+    const gemsTotal = levelStats?.gemsTotal ?? currentLevel.gems.length;
+    const gemsCollected = currentLevel.gems.filter(gem => gem.collected).length;
+
+    const enemiesTotal = levelStats?.enemiesTotal ?? currentLevel.enemies.length;
+    const enemiesLeft = currentLevel.enemies.filter(enemy => enemy.active !== false).length;
+    const enemiesDefeated = Math.max(0, enemiesTotal - enemiesLeft);
+
+    const timeBonus = Math.max(0, 6000 - seconds * 45);
+    const gemBonus = gemsCollected * 150;
+    const enemyBonus = enemiesDefeated * 300;
+    const noDeathBonus = player.deathsThisLevel === 0 ? 2500 : 0;
+
+    const total = timeBonus + gemBonus + enemyBonus + noDeathBonus;
+
+    return {
+        seconds,
+        gemsCollected,
+        gemsTotal,
+        enemiesDefeated,
+        enemiesTotal,
+        timeBonus,
+        gemBonus,
+        enemyBonus,
+        noDeathBonus,
+        total,
+    };
+}
 
 function initializeLevelState(level) {
+
+    player.deathsThisLevel = 0;
+
     if (level.enemies) {
         for (const enemy of level.enemies) {
             enemy.maxHealth = enemy.maxHealth ?? enemy.health ?? 1;
@@ -577,30 +667,30 @@ function updateProjectiles(dt) {
 
             camera.shake(7, 0.12);
 
-if (boss.health <= 0) {
-    boss.active = false;
-    currentLevel.exit.locked = false;
+            if (boss.health <= 0) {
+                boss.active = false;
+                currentLevel.exit.locked = false;
 
-    spawnParticles(
-        boss.x + boss.width / 2,
-        boss.y + boss.height / 2,
-        90,
-        '#ff2bd6'
-    );
+                spawnParticles(
+                    boss.x + boss.width / 2,
+                    boss.y + boss.height / 2,
+                    90,
+                    '#ff2bd6'
+                );
 
-    spawnParticles(
-        boss.x + boss.width / 2,
-        boss.y + boss.height / 2,
-        50,
-        '#21e6ff'
-    );
+                spawnParticles(
+                    boss.x + boss.width / 2,
+                    boss.y + boss.height / 2,
+                    50,
+                    '#21e6ff'
+                );
 
-    camera.shake(22, 0.65);
+                camera.shake(22, 0.65);
 
-    setTimeout(() => {
-        completeLevel({ bossDefeated: true });
-    }, 700);
-}
+                setTimeout(() => {
+                    completeLevel({ bossDefeated: true });
+                }, 700);
+            }
         }
     }
 
@@ -703,30 +793,30 @@ function damageBossInRadius(centerX, centerY, radius, damage) {
         '#fb7185'
     );
 
-if (boss.health <= 0) {
-    boss.active = false;
-    currentLevel.exit.locked = false;
+    if (boss.health <= 0) {
+        boss.active = false;
+        currentLevel.exit.locked = false;
 
-    spawnParticles(
-        bossCenterX,
-        bossCenterY,
-        90,
-        '#ff2bd6'
-    );
+        spawnParticles(
+            bossCenterX,
+            bossCenterY,
+            90,
+            '#ff2bd6'
+        );
 
-    spawnParticles(
-        bossCenterX,
-        bossCenterY,
-        50,
-        '#21e6ff'
-    );
+        spawnParticles(
+            bossCenterX,
+            bossCenterY,
+            50,
+            '#21e6ff'
+        );
 
-    camera.shake(22, 0.65);
+        camera.shake(22, 0.65);
 
-    setTimeout(() => {
-        completeLevel({ bossDefeated: true });
-    }, 700);
-}
+        setTimeout(() => {
+            completeLevel({ bossDefeated: true });
+        }, 700);
+    }
 }
 
 function updateExit() {
@@ -753,90 +843,118 @@ function updateExit() {
 }
 
 function drawLevelCompleteScreen() {
-    const completedMs = levelStats?.completedAt && levelStats?.startedAt
-        ? levelStats.completedAt - levelStats.startedAt
-        : 0;
+    const ui = LEVEL_COMPLETE_UI;
+    const score = levelStats?.score ?? calculateLevelScore();
 
-    const seconds = Math.max(0, Math.floor(completedMs / 1000));
-    const minutes = Math.floor(seconds / 60);
-    const restSeconds = seconds % 60;
-
+    const minutes = Math.floor(score.seconds / 60);
+    const restSeconds = score.seconds % 60;
     const timeText = `${String(minutes).padStart(2, '0')}:${String(restSeconds).padStart(2, '0')}`;
 
-    const gemsTotal = levelStats?.gemsTotal ?? currentLevel.gems.length;
-    const gemsCollected = player.gems ?? 0;
+    const panelX = CONFIG.width / 2 - ui.panel.width / 2;
+    const panelY = ui.panel.y;
 
-    const enemiesTotal = levelStats?.enemiesTotal ?? currentLevel.enemies.length;
-    const enemiesLeft = currentLevel.enemies.filter(enemy => enemy.active !== false).length;
-    const enemiesDefeated = Math.max(0, enemiesTotal - enemiesLeft);
+    const rowLeft = CONFIG.width / 2 - ui.rows.leftOffset;
+    const rowValueX = CONFIG.width / 2 + ui.rows.valueOffset;
 
     ctx.save();
 
-    ctx.fillStyle = 'rgba(3, 7, 18, 0.86)';
+    // Dark overlay
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.88)';
     ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
 
-    ctx.shadowColor = '#21e6ff';
-    ctx.shadowBlur = 28;
+    // Main panel
+    ctx.shadowColor = ui.panel.shadow;
+    ctx.shadowBlur = 30;
 
-    ctx.fillStyle = 'rgba(5, 5, 16, 0.94)';
-    ctx.fillRect(CONFIG.width / 2 - 280, 88, 560, 350);
+    ctx.fillStyle = ui.panel.background;
+    ctx.fillRect(panelX, panelY, ui.panel.width, ui.panel.height);
 
-    ctx.strokeStyle = '#21e6ff';
+    ctx.strokeStyle = ui.panel.border;
     ctx.lineWidth = 3;
-    ctx.strokeRect(CONFIG.width / 2 - 280, 88, 560, 350);
+    ctx.strokeRect(panelX, panelY, ui.panel.width, ui.panel.height);
 
     ctx.shadowBlur = 0;
 
-    ctx.fillStyle = '#ff2bd6';
-    ctx.font = '900 42px monospace';
+    // Title
     ctx.textAlign = 'center';
-    ctx.fillText('LEVEL COMPLETE', CONFIG.width / 2, 150);
+    ctx.fillStyle = ui.title.color;
+    ctx.font = ui.title.font;
+    ctx.fillText(ui.title.text, CONFIG.width / 2, ui.title.y);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 22px monospace';
-    ctx.fillText(levelStats?.levelName ?? currentLevel.name ?? 'STAGE CLEAR', CONFIG.width / 2, 192);
+    // Level name
+    ctx.fillStyle = ui.subtitle.color;
+    ctx.font = ui.subtitle.font;
+    ctx.fillText(levelStats?.levelName ?? currentLevel.name ?? 'STAGE CLEAR', CONFIG.width / 2, ui.subtitle.y);
 
+    // Stats
+    let y = ui.rows.startY;
+
+    drawResultRow('TIME', timeText, '#21e6ff', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('GEMS', `${score.gemsCollected} / ${score.gemsTotal}`, '#ff2bd6', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('ENEMIES', `${score.enemiesDefeated} / ${score.enemiesTotal}`, '#facc15', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('DEATHS', `${player.deathsThisLevel ?? 0}`, '#fb7185', rowLeft, rowValueX, y);
+    y += ui.rows.bonusGap;
+
+    // Bonuses
+    drawResultRow('TIME BONUS', `+${score.timeBonus}`, '#21e6ff', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('GEM BONUS', `+${score.gemBonus}`, '#ff2bd6', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('ENEMY BONUS', `+${score.enemyBonus}`, '#facc15', rowLeft, rowValueX, y);
+    y += ui.rows.gap;
+
+    drawResultRow('NO DEATH BONUS', `+${score.noDeathBonus}`, '#22c55e', rowLeft, rowValueX, y);
+
+    // Total bar
+    const totalX = panelX + 72;
+    const totalY = ui.total.y;
+    const totalWidth = ui.panel.width - 144;
+
+    ctx.fillStyle = ui.total.background;
+    ctx.fillRect(totalX, totalY - 30, totalWidth, ui.total.height);
+
+    ctx.fillStyle = ui.total.labelColor;
+    ctx.font = ui.total.font;
     ctx.textAlign = 'left';
-    ctx.font = '900 20px monospace';
+    ctx.fillText('TOTAL', totalX + 18, totalY);
 
-    const left = CONFIG.width / 2 - 190;
-    let y = 245;
+    ctx.fillStyle = ui.total.valueColor;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${score.total}`, totalX + totalWidth - 18, totalY);
 
-    ctx.fillStyle = '#21e6ff';
-    ctx.fillText('TIME', left, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(timeText, left + 260, y);
-
-    y += 42;
-
-    ctx.fillStyle = '#ff2bd6';
-    ctx.fillText('GEMS', left, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${gemsCollected} / ${gemsTotal}`, left + 260, y);
-
-    y += 42;
-
-    ctx.fillStyle = '#facc15';
-    ctx.fillText('ENEMIES', left, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${enemiesDefeated} / ${enemiesTotal}`, left + 260, y);
-
-    y += 42;
-
-    ctx.fillStyle = '#22c55e';
-    ctx.fillText('LIVES', left, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`x ${player.lives}`, left + 260, y);
-
-    y += 58;
-
+    // Footer
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 18px monospace';
-    ctx.fillText('PRESS ENTER OR CLICK TO NEXT LEVEL', CONFIG.width / 2, y);
+    ctx.fillStyle = ui.footer.color;
+    ctx.font = ui.footer.font;
+    ctx.fillText(ui.footer.text, CONFIG.width / 2, ui.footer.y);
+
+    ctx.fillStyle = ui.footer.subColor;
+    ctx.font = ui.footer.subFont;
+    ctx.fillText(`TOTAL SCORE: ${player.score ?? 0}`, CONFIG.width / 2, ui.footer.y + 26);
 
     ctx.restore();
 }
+
+
+function drawResultRow(label, value, color, left, valueX, y) {
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.font = LEVEL_COMPLETE_UI.rows.font;
+    ctx.fillText(label, left, y);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.fillText(value, valueX, y);
+}
+
 
 
 function loadNextLevel() {
@@ -869,6 +987,7 @@ function loadNextLevel() {
     enemyProjectiles.length = 0;
 
     initializeLevelState(currentLevel);
+    player.deathsThisLevel = 0;
     levelStats = createLevelStats(currentLevel);
 
 }
@@ -879,6 +998,14 @@ function completeLevel({ bossDefeated = false } = {}) {
     if (levelStats) {
         levelStats.completedAt = performance.now();
         levelStats.bossDefeated = bossDefeated;
+    }
+
+    const score = calculateLevelScore();
+
+    if (levelStats && !levelStats.scoreAdded) {
+        player.score = (player.score ?? 0) + score.total;
+        levelStats.scoreAdded = true;
+        levelStats.score = score;
     }
 
     projectiles.length = 0;
@@ -1613,20 +1740,20 @@ function render() {
         return;
     }
 
-if (gameState === 'levelComplete') {
-    drawBackground();
-    drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
-    drawPlatforms();
-    drawGems();
-    drawExit();
-    drawEnemies();
-    drawBoss();
-    drawParticles(ctx, camera);
-    player.draw(ctx, camera);
-    drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
-    drawLevelCompleteScreen();
-    return;
-}
+    if (gameState === 'levelComplete') {
+        drawBackground();
+        drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
+        drawPlatforms();
+        drawGems();
+        drawExit();
+        drawEnemies();
+        drawBoss();
+        drawParticles(ctx, camera);
+        player.draw(ctx, camera);
+        drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
+        drawLevelCompleteScreen();
+        return;
+    }
 
 
 
@@ -1709,13 +1836,13 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
-if (gameState === 'levelComplete' && e.code === 'Enter') {
-    stopMusic();
-    loadNextLevel();
-    playMusic(currentLevel.music ?? 'level1');
-    gameState = 'playing';
-    return;
-}
+    if (gameState === 'levelComplete' && e.code === 'Enter') {
+        stopMusic();
+        loadNextLevel();
+        playMusic(currentLevel.music ?? 'level1');
+        gameState = 'playing';
+        return;
+    }
 
 
     if (gameState === 'playing') {
@@ -1745,13 +1872,13 @@ canvas.addEventListener('click', () => {
         }
     }
 
-if (gameState === 'levelComplete') {
-    stopMusic();
-    loadNextLevel();
-    playMusic(currentLevel.music ?? 'level1');
-    gameState = 'playing';
-    return;
-}
+    if (gameState === 'levelComplete') {
+        stopMusic();
+        loadNextLevel();
+        playMusic(currentLevel.music ?? 'level1');
+        gameState = 'playing';
+        return;
+    }
 
 
 
