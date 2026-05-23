@@ -1,8 +1,24 @@
 # ShadowRunner
+[▶️ ShadowRunner jetzt spielen](https://ruddat.github.io/shadowrunner/)
+
 
 **ShadowRunner** ist ein browserbasiertes 2D-Action-Game im Neon-Retro-Stil.
 
 Das Spiel läuft direkt im Browser über HTML5 Canvas und JavaScript-Module. Ziel ist ein schnelles Arcade-Feeling mit Plattformen, Gegnern, Waffen-Upgrades, Powerups, Level-FX, Bosskämpfen, Musik und klassischen Run-and-Gun-Mechaniken.
+
+
+---
+
+## 🚀 Live-Demo
+
+Das Spiel ist direkt über GitHub Pages spielbar:
+
+**https://ruddat.github.io/shadowrunner/**
+
+> Hinweis: Beim ersten Laden können Browser Audio erst nach einer Benutzeraktion starten. Ein Klick oder Tastendruck im Spiel reicht normalerweise aus.
+
+---
+
 
 ---
 
