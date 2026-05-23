@@ -495,6 +495,11 @@ function updateBoss(dt) {
 
     if (!boss || boss.active === false) return;
 
+    updateBossPhase(boss);
+
+    const phaseConfig = getBossPhaseConfig(boss);
+    const endPressureConfig = getBossEndPressureConfig(boss, phaseConfig);
+
     boss.x += boss.speed * boss.direction * dt;
 
     if (boss.x <= boss.minX) {
@@ -507,33 +512,219 @@ function updateBoss(dt) {
         boss.direction = -1;
     }
 
-    if (boss.health <= boss.maxHealth / 2) {
-        boss.phase = 2;
-        boss.speed = 145;
+    // Optional: Boss zieht Richtung Spieler leicht nach.
+    if (phaseConfig.trackPlayer) {
+        const bossCenterX = boss.x + boss.width / 2;
+        const playerCenterX = player.x + player.width / 2;
+
+        if (Math.abs(playerCenterX - bossCenterX) > 80) {
+            boss.direction = playerCenterX > bossCenterX ? 1 : -1;
+        }
     }
 
     boss.shootTimer -= dt;
 
     if (boss.shootTimer <= 0) {
-        shootBossProjectile(boss);
-        boss.shootTimer = boss.phase === 2 ? 0.75 : 1.2;
+    shootBossPattern(boss, endPressureConfig);
+        boss.shootTimer = phaseConfig.shootDelay ?? 1.2;
     }
 
     if (rectsOverlap(player, boss)) {
-        player.hit(currentLevel, 45);
-        camera.shake(14, 0.25);
-        messageTimer = 0.8;
+    player.hit(currentLevel, endPressureConfig.contactDamage ?? boss.contactDamage ?? 45);
+            camera.shake(14, 0.25);
+        showCenterMessage('HIT', 0.65);
     }
 }
 
-function shootBossProjectile(boss) {
+function updateBossPhase(boss) {
+    const maxHealth = boss.maxHealth ?? boss.health ?? 1;
+    const healthRatio = boss.health / maxHealth;
+
+    const phases = boss.config?.phases;
+
+    if (!phases || phases.length === 0) {
+        // Fallback für alte Boss-Daten
+        if (boss.health <= maxHealth / 2) {
+            boss.phase = 2;
+            boss.speed = 145;
+        } else {
+            boss.phase = 1;
+        }
+
+        return;
+    }
+
+    let selectedPhase = phases[0];
+
+    for (const phase of phases) {
+        if (healthRatio <= phase.hpBelow) {
+            selectedPhase = phase;
+        }
+    }
+
+    if (boss.phase !== selectedPhase.id) {
+        boss.phase = selectedPhase.id;
+
+        if (selectedPhase.message) {
+            showCenterMessage(selectedPhase.message, 1.0);
+        }
+
+        spawnParticles(
+            boss.x + boss.width / 2,
+            boss.y + boss.height / 2,
+            selectedPhase.id === 3 ? 70 : 42,
+            selectedPhase.color ?? '#ff003c'
+        );
+
+        camera.shake(selectedPhase.id === 3 ? 18 : 10, 0.28);
+    }
+
+    boss.speed = selectedPhase.speed ?? boss.baseSpeed ?? boss.speed;
+}
+
+function getBossEndPressureConfig(boss, phaseConfig) {
+    const exit = currentLevel.exit;
+
+    if (!exit || exit.locked === false) return phaseConfig;
+
+    const playerNearEnd = player.x > (boss.endPressureX ?? CONFIG.worldWidth - 520);
+
+    if (!playerNearEnd) return phaseConfig;
+
+    return {
+        ...phaseConfig,
+        shootDelay: Math.max(
+            boss.endPressureMinShootDelay ?? 0.38,
+            (phaseConfig.shootDelay ?? 1.0) * 0.65
+        ),
+        projectileSpeed: (phaseConfig.projectileSpeed ?? 360) + 80,
+        pattern: boss.endPressurePattern ?? phaseConfig.endPressurePattern ?? 'aimedBurst',
+        damage: (phaseConfig.damage ?? 30) + 5,
+        trackPlayer: true,
+    };
+}
+
+
+function getBossPhaseConfig(boss) {
+    const phases = boss.config?.phases;
+
+    if (!phases || phases.length === 0) {
+        return {
+            id: boss.phase ?? 1,
+            shootDelay: boss.phase === 2 ? 0.75 : 1.2,
+            projectileSpeed: boss.phase === 2 ? 420 : 340,
+            damage: boss.phase === 2 ? 40 : 30,
+            pattern: boss.phase === 2 ? 'double' : 'single',
+            contactDamage: boss.phase === 2 ? 50 : 45,
+        };
+    }
+
+    return phases.find(phase => phase.id === boss.phase) ?? phases[0];
+}
+
+
+
+function shootBossPattern(boss, phaseConfig) {
+    const pattern = phaseConfig.pattern ?? 'single';
+
+    if (pattern === 'single') {
+        shootBossProjectile(boss, phaseConfig, 0);
+        return;
+    }
+
+    if (pattern === 'double') {
+        shootBossProjectile(boss, phaseConfig, -0.14);
+        shootBossProjectile(boss, phaseConfig, 0.14);
+        return;
+    }
+
+    if (pattern === 'triple') {
+        shootBossProjectile(boss, phaseConfig, -0.22);
+        shootBossProjectile(boss, phaseConfig, 0);
+        shootBossProjectile(boss, phaseConfig, 0.22);
+        return;
+    }
+
+    if (pattern === 'burst') {
+        shootBossProjectile(boss, phaseConfig, -0.28);
+        shootBossProjectile(boss, phaseConfig, -0.14);
+        shootBossProjectile(boss, phaseConfig, 0);
+        shootBossProjectile(boss, phaseConfig, 0.14);
+        shootBossProjectile(boss, phaseConfig, 0.28);
+        return;
+    }
+
+    if (pattern === 'aimed') {
+        shootBossAimedProjectile(boss, phaseConfig);
+        return;
+    }
+
+    if (pattern === 'aimedBurst') {
+        shootBossAimedProjectile(boss, phaseConfig, -0.18);
+        shootBossAimedProjectile(boss, phaseConfig, 0);
+        shootBossAimedProjectile(boss, phaseConfig, 0.18);
+        return;
+    }
+
+    shootBossProjectile(boss, phaseConfig, 0);
+}
+
+function shootBossProjectile(boss, phaseConfig, verticalOffset = 0) {
+    const speed = phaseConfig.projectileSpeed ?? 360;
+
     bossProjectiles.push({
         x: boss.x,
-        y: boss.y + 55,
-        width: 26,
-        height: 12,
-        speed: boss.phase === 2 ? 420 : 340,
-        damage: boss.phase === 2 ? 40 : 30,
+        y: boss.y + (phaseConfig.fireY ?? 55),
+        width: phaseConfig.projectileWidth ?? 26,
+        height: phaseConfig.projectileHeight ?? 12,
+        vx: -(speed),
+        vy: verticalOffset * speed,
+        speed,
+        damage: phaseConfig.damage ?? 30,
+        color: phaseConfig.projectileColor ?? '#ff003c',
+        glow: phaseConfig.projectileGlow ?? '#ff003c',
+        active: true,
+    });
+}
+
+function shootBossAimedProjectile(boss, phaseConfig, angleOffset = 0) {
+    const bossCenterX = boss.x + boss.width / 2;
+    const bossCenterY = boss.y + (phaseConfig.fireY ?? 55);
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    const dx = playerCenterX - bossCenterX;
+    const dy = playerCenterY - bossCenterY;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+
+    const speed = phaseConfig.projectileSpeed ?? 390;
+
+    let vx = (dx / distance) * speed;
+    let vy = (dy / distance) * speed;
+
+    if (angleOffset !== 0) {
+        const cos = Math.cos(angleOffset);
+        const sin = Math.sin(angleOffset);
+
+        const rotatedVx = vx * cos - vy * sin;
+        const rotatedVy = vx * sin + vy * cos;
+
+        vx = rotatedVx;
+        vy = rotatedVy;
+    }
+
+    bossProjectiles.push({
+        x: bossCenterX,
+        y: bossCenterY,
+        width: phaseConfig.projectileWidth ?? 24,
+        height: phaseConfig.projectileHeight ?? 12,
+        vx,
+        vy,
+        speed,
+        damage: phaseConfig.damage ?? 35,
+        color: phaseConfig.projectileColor ?? '#ff003c',
+        glow: phaseConfig.projectileGlow ?? '#ff003c',
         active: true,
     });
 }
@@ -542,18 +733,36 @@ function updateBossProjectiles(dt) {
     for (const shot of bossProjectiles) {
         if (!shot.active) continue;
 
-        shot.x -= shot.speed * dt;
+        if (typeof shot.vx === 'number' || typeof shot.vy === 'number') {
+            shot.x += (shot.vx ?? -shot.speed) * dt;
+            shot.y += (shot.vy ?? 0) * dt;
+        } else {
+            shot.x -= shot.speed * dt;
+        }
 
-        if (shot.x < camera.x - 100) {
+        if (
+            shot.x < camera.x - 140 ||
+            shot.x > camera.x + CONFIG.width + 140 ||
+            shot.y < -120 ||
+            shot.y > CONFIG.height + 180
+        ) {
             shot.active = false;
+            continue;
         }
 
         if (rectsOverlap(player, shot)) {
             shot.active = false;
             player.hit(currentLevel, shot.damage ?? 35);
-            spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 20, '#ff003c');
+
+            spawnParticles(
+                player.x + player.width / 2,
+                player.y + player.height / 2,
+                20,
+                shot.color ?? '#ff003c'
+            );
+
             camera.shake(12, 0.22);
-            messageTimer = 0.8;
+            showCenterMessage('HIT', 0.65);
         }
     }
 
@@ -2016,14 +2225,34 @@ function drawBossProjectiles() {
 
         ctx.save();
 
-        ctx.shadowColor = '#ff003c';
-        ctx.shadowBlur = 18;
+        ctx.shadowColor = shot.glow ?? '#ff003c';
+        ctx.shadowBlur = 22;
 
-        ctx.fillStyle = '#ff003c';
-        ctx.fillRect(x, y, shot.width, shot.height);
+        ctx.fillStyle = shot.color ?? '#ff003c';
+        ctx.beginPath();
+        ctx.ellipse(
+            x + shot.width / 2,
+            y + shot.height / 2,
+            shot.width / 2,
+            Math.max(4, shot.height / 2),
+            0,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
 
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x + 4, y + 3, shot.width - 8, 3);
+        ctx.beginPath();
+        ctx.ellipse(
+            x + shot.width / 2,
+            y + shot.height / 2,
+            Math.max(3, shot.width / 5),
+            Math.max(2, shot.height / 4),
+            0,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
 
         ctx.restore();
     }
