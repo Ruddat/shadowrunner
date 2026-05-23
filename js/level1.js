@@ -89,6 +89,12 @@ export const level1 = {
 
     enemies: [
         {
+            canShoot: true,
+            shootDelay: 1.4,
+            shootRangeX: 560,
+            shootRangeY: 180,
+            projectileSpeed: 340,
+            projectileColor: '#ff003c',
             x: 820,
             y: 312,
             width: 46,
@@ -110,6 +116,19 @@ export const level1 = {
             direction: 1,
             health: 3,
         },
+
+        {
+            x: 1600,
+            y: 332,
+            width: 46,
+            height: 50,
+            minX: 1520,
+            maxX: 1960,
+            speed: 120,
+            direction: 1,
+            health: 5,
+        },
+
         {
             x: 2660,
             y: 352,

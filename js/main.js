@@ -89,6 +89,8 @@ let gameState = 'intro';
 let introTime = 0;
 let levelStats = null;
 let gameOverStats = null;
+let gameOverTimer = 0;
+const gameOverSparks = [];
 
 const LEVEL_COMPLETE_UI = {
     panel: {
@@ -141,7 +143,43 @@ const LEVEL_COMPLETE_UI = {
     },
 };
 
+const GAME_OVER_UI = {
+    panel: {
+        width: 620,
+        height: 390,
+        y: 92,
+        background: 'rgba(8, 3, 12, 0.96)',
+        border: '#ff003c',
+        shadow: '#ff003c',
+    },
 
+    title: {
+        y: 78,
+        text: 'GAME OVER',
+        color: '#ff003c',
+        font: '900 54px monospace',
+    },
+
+    subtitle: {
+        y: 118,
+        color: '#ffffff',
+        font: '900 22px monospace',
+    },
+
+    rows: {
+        startY: 175,
+        gap: 38,
+        leftOffset: 130,
+        rightOffset: 130,
+        font: '900 20px monospace',
+    },
+
+    footer: {
+        yOffset: 315,
+        retryText: 'PRESS ENTER OR CLICK TO RETRY',
+        titleText: 'PRESS ESC FOR TITLE SCREEN',
+    },
+};
 
 
 registerMusic('title', 'assets/audio/title-theme.mp3');
@@ -279,7 +317,49 @@ function triggerGameOver() {
     stopMusic();
     playMusic('gameOver');
 
+    gameOverStats = null;
+    gameOverTimer = 0;
+    gameOverSparks.length = 0;
     gameState = 'gameOver';
+}
+
+
+function updateGameOver(dt) {
+    gameOverTimer += dt;
+
+    // Sparks kontrolliert spawnen, nicht komplett wild.
+    if (Math.random() < dt * 14) {
+        spawnGameOverSpark();
+    }
+
+    for (const spark of gameOverSparks) {
+        spark.x += spark.vx * dt;
+        spark.y += spark.vy * dt;
+        spark.life -= dt;
+        spark.alpha = Math.max(0, spark.life / spark.maxLife);
+    }
+
+    for (let i = gameOverSparks.length - 1; i >= 0; i--) {
+        if (gameOverSparks[i].life <= 0) {
+            gameOverSparks.splice(i, 1);
+        }
+    }
+}
+
+function spawnGameOverSpark() {
+    const side = Math.random() < 0.5 ? -1 : 1;
+
+    gameOverSparks.push({
+        x: side === -1 ? 80 : CONFIG.width - 80,
+        y: 80 + Math.random() * (CONFIG.height - 160),
+        vx: side * -(80 + Math.random() * 180),
+        vy: -40 + Math.random() * 80,
+        size: 2 + Math.random() * 5,
+        life: 0.45 + Math.random() * 0.5,
+        maxLife: 0.45 + Math.random() * 0.5,
+        alpha: 1,
+        color: Math.random() < 0.5 ? '#ff003c' : '#fb7185',
+    });
 }
 
 
@@ -297,6 +377,12 @@ function update(dt) {
         updateCreditsScreen(dt);
         return;
     }
+
+    if (gameState === 'gameOver') {
+        updateGameOver(dt);
+        return;
+    }
+
     player.update(dt, currentLevel);
 
     if (player.isGameOver) {
@@ -876,6 +962,8 @@ function updateExit() {
 }
 
 function drawGameOverScreen() {
+    const ui = GAME_OVER_UI;
+
     const stats = gameOverStats ?? {
         levelName: currentLevel.name ?? 'UNKNOWN LEVEL',
         score: player.score ?? 0,
@@ -885,71 +973,194 @@ function drawGameOverScreen() {
         enemiesTotal: currentLevel.enemies?.length ?? 0,
     };
 
+    const t = gameOverTimer;
+    const intro = Math.min(1, t / 0.75);
+    const ease = easeOutBack(intro);
+
+    const panelWidth = ui.panel.width;
+    const panelHeight = ui.panel.height;
+
+    const panelX = CONFIG.width / 2 - panelWidth / 2;
+    const panelY = ui.panel.y;
+
+    const panelCenterX = CONFIG.width / 2;
+    const panelCenterY = panelY + panelHeight / 2;
+
+    const glitch = Math.sin(t * 35) * 2 + (Math.random() < 0.08 ? Math.random() * 8 - 4 : 0);
+    const flicker = Math.random() < 0.06 ? 0.72 : 1;
+
     ctx.save();
 
-    ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
+    // Dark red overlay
+    ctx.fillStyle = `rgba(3, 0, 8, ${0.74 + intro * 0.18})`;
     ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
 
-    const panelWidth = 620;
-    const panelHeight = 390;
-    const panelX = CONFIG.width / 2 - panelWidth / 2;
-    const panelY = 92;
+    drawGameOverScanlines(t);
+    drawGameOverSparks();
 
-    ctx.shadowColor = '#ff003c';
-    ctx.shadowBlur = 32;
+    // Panel Intro: fährt/skaliert rein
+    ctx.translate(panelCenterX, panelCenterY);
+    ctx.scale(ease, ease);
+    ctx.translate(-panelCenterX, -panelCenterY);
 
-    ctx.fillStyle = 'rgba(8, 3, 12, 0.96)';
+    ctx.globalAlpha = intro;
+
+    ctx.shadowColor = ui.panel.shadow;
+    ctx.shadowBlur = 26 + Math.sin(t * 9) * 8;
+
+    ctx.fillStyle = ui.panel.background;
     ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
 
-    ctx.strokeStyle = '#ff003c';
+    ctx.strokeStyle = ui.panel.border;
     ctx.lineWidth = 3;
     ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
 
+    // Zweite dünne Innenkante
     ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(251, 113, 133, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(panelX + 10, panelY + 10, panelWidth - 20, panelHeight - 20);
 
+    // Warning side bars
+    const barAlpha = 0.25 + Math.sin(t * 8) * 0.15;
+    ctx.fillStyle = `rgba(255, 0, 60, ${barAlpha})`;
+    ctx.fillRect(panelX + 22, panelY + 28, 6, panelHeight - 56);
+    ctx.fillRect(panelX + panelWidth - 28, panelY + 28, 6, panelHeight - 56);
+
+    // Title Glitch
     ctx.textAlign = 'center';
+    ctx.font = ui.title.font;
+
+    ctx.globalAlpha = intro * flicker;
+    ctx.fillStyle = '#21e6ff';
+    ctx.fillText(ui.title.text, CONFIG.width / 2 + glitch + 3, panelY + ui.title.y);
+
     ctx.fillStyle = '#ff003c';
-    ctx.font = '900 54px monospace';
-    ctx.fillText('GAME OVER', CONFIG.width / 2, panelY + 78);
+    ctx.fillText(ui.title.text, CONFIG.width / 2 + glitch, panelY + ui.title.y);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 22px monospace';
-    ctx.fillText(stats.levelName, CONFIG.width / 2, panelY + 118);
+    ctx.globalAlpha = intro * 0.22;
+    ctx.fillText(ui.title.text, CONFIG.width / 2 - glitch - 3, panelY + ui.title.y);
 
-    const left = panelX + 130;
-    const right = panelX + panelWidth - 130;
-    let y = panelY + 175;
+    ctx.globalAlpha = intro;
 
-    drawGameOverRow('STAGE', `${stats.reachedLevel}`, '#21e6ff', left, right, y);
-    y += 38;
+    // Subtitle
+    if (t > 0.35) {
+        ctx.fillStyle = ui.subtitle.color;
+        ctx.font = ui.subtitle.font;
+        ctx.fillText(stats.levelName, CONFIG.width / 2, panelY + ui.subtitle.y);
+    }
 
-    drawGameOverRow('SCORE', `${stats.score}`, '#facc15', left, right, y);
-    y += 38;
+    const left = panelX + ui.rows.leftOffset;
+    const right = panelX + panelWidth - ui.rows.rightOffset;
 
-    drawGameOverRow('GEMS', `${stats.gems}`, '#ff2bd6', left, right, y);
-    y += 38;
+    let y = panelY + ui.rows.startY;
 
-    drawGameOverRow(
+    drawAnimatedGameOverRow('STAGE', `${stats.reachedLevel}`, '#21e6ff', left, right, y, 0.55);
+    y += ui.rows.gap;
+
+    drawAnimatedGameOverRow('SCORE', `${stats.score}`, '#facc15', left, right, y, 0.75);
+    y += ui.rows.gap;
+
+    drawAnimatedGameOverRow('GEMS', `${stats.gems}`, '#ff2bd6', left, right, y, 0.95);
+    y += ui.rows.gap;
+
+    drawAnimatedGameOverRow(
         'ENEMIES',
         `${stats.enemiesDefeated} / ${stats.enemiesTotal}`,
         '#fb7185',
         left,
         right,
-        y
+        y,
+        1.15
     );
 
-    y += 72;
+    // Footer blinkt erst später
+    const footerY = panelY + ui.footer.yOffset;
 
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 18px monospace';
-    ctx.fillText('PRESS ENTER OR CLICK TO RETRY', CONFIG.width / 2, y);
+    if (t > 1.45) {
+        const blink = Math.sin(t * 6) > -0.35 ? 1 : 0.35;
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '700 14px monospace';
-    ctx.fillText('PRESS ESC FOR TITLE SCREEN', CONFIG.width / 2, y + 28);
+        ctx.globalAlpha = blink;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 18px monospace';
+        ctx.fillText(ui.footer.retryText, CONFIG.width / 2, footerY);
+
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 14px monospace';
+        ctx.fillText(ui.footer.titleText, CONFIG.width / 2, footerY + 28);
+    }
 
     ctx.restore();
+}
+
+
+function drawAnimatedGameOverRow(label, value, color, left, right, y, delay) {
+    const local = Math.min(1, Math.max(0, (gameOverTimer - delay) / 0.28));
+    if (local <= 0) return;
+
+    const xOffset = (1 - local) * -28;
+
+    ctx.save();
+    ctx.globalAlpha = local;
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = color;
+    ctx.font = GAME_OVER_UI.rows.font;
+    ctx.fillText(label, left + xOffset, y);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(value, right - xOffset, y);
+
+    ctx.restore();
+}
+
+function drawGameOverScanlines(t) {
+    ctx.save();
+
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#ff003c';
+
+    const offset = Math.floor((t * 80) % 8);
+
+    for (let y = offset; y < CONFIG.height; y += 8) {
+        ctx.fillRect(0, y, CONFIG.width, 1);
+    }
+
+    // Roter Rand-Puls
+    const pulse = 0.08 + Math.sin(t * 5) * 0.04;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff003c';
+    ctx.fillRect(0, 0, CONFIG.width, 18);
+    ctx.fillRect(0, CONFIG.height - 18, CONFIG.width, 18);
+    ctx.fillRect(0, 0, 18, CONFIG.height);
+    ctx.fillRect(CONFIG.width - 18, 0, 18, CONFIG.height);
+
+    ctx.restore();
+}
+
+function drawGameOverSparks() {
+    ctx.save();
+
+    for (const spark of gameOverSparks) {
+        ctx.globalAlpha = spark.alpha;
+        ctx.shadowColor = spark.color;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = spark.color;
+        ctx.fillRect(spark.x, spark.y, spark.size, spark.size);
+    }
+
+    ctx.restore();
+}
+
+function easeOutBack(x) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
 }
 
 function drawGameOverRow(label, value, color, left, right, y) {
@@ -2023,18 +2234,18 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (gameState === 'gameOver') {
-    if (e.code === 'Enter' || e.code === 'Space') {
-        retryCurrentLevel();
-        return;
-    }
+        if (e.code === 'Enter' || e.code === 'Space') {
+            retryCurrentLevel();
+            return;
+        }
 
-    if (e.code === 'Escape') {
-        stopMusic();
-        gameState = 'title';
-        playMusic('title');
-        return;
+        if (e.code === 'Escape') {
+            stopMusic();
+            gameState = 'title';
+            playMusic('title');
+            return;
+        }
     }
-}
 
     if (gameState === 'playing') {
         if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
