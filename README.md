@@ -1,63 +1,70 @@
 # ShadowRunner
 
-**ShadowRunner** ist ein browserbasiertes 2D-Action-Game mit Retro-Arcade-Feeling, Neon-Atmosphäre, schnellen Kämpfen, Powerups, Gegnerwellen und Boss-Fights.
+**ShadowRunner** ist ein browserbasiertes 2D-Action-Game im Neon-Retro-Stil.
 
-Das Projekt entsteht als spielbarer Prototyp mit Fokus auf direkte Steuerung, schnelle Iteration und modular erweiterbare Level-, Gegner- und Waffensysteme.
-
----
-
-## 🎮 Spielidee
-
-ShadowRunner kombiniert klassische Run-and-Gun-Mechaniken mit moderner Neon-Optik.
-
-Der Spieler bewegt sich durch futuristische Level, sammelt Powerups, bekämpft Gegner und stellt sich am Ende besonders starken Bossen. Das Ziel ist ein flüssiges Arcade-Spielgefühl mit klarer Progression, unterschiedlichen Waffen und immer mehr Action pro Level.
+Das Spiel läuft direkt im Browser über HTML5 Canvas und JavaScript-Module. Ziel ist ein schnelles Arcade-Feeling mit Plattformen, Gegnern, Waffen-Upgrades, Powerups, Level-FX, Bosskämpfen, Musik und klassischen Run-and-Gun-Mechaniken.
 
 ---
 
-## ✨ Features
+## 🎮 Spielkonzept
 
-- 2D-Canvas-Gameplay
-- Spielerbewegung mit Sprung-, Lauf- und Schussmechanik
-- Gegner mit unterschiedlichen Bewegungs- und Angriffsmustern
-- Powerups und Extras
-- Boss-Gegner
-- Levelsystem
-- Hintergrundmusik und Soundeffekte
-- Retro-/Neon-Look
-- Erweiterbare Struktur für neue Level, Waffen und Gegner
+Du steuerst einen Runner durch futuristische Neon-Level, sammelst Gems, findest Waffen-Upgrades, aktivierst Bonusblöcke und kämpfst dich durch Gegner bis zum Levelausgang.
+
+Das Spiel setzt auf direkte Steuerung, schnelles Feedback, sichtbare Powerups und klare Levelprogression.
 
 ---
 
-## 🕹️ Steuerung
+## ✨ Aktuelle Features
 
-| Taste | Aktion |
-|------|--------|
-| Pfeiltasten / WASD | Bewegung |
-| Leertaste | Springen |
-| Mausklick / Taste | Schießen |
-| Enter | Start / Bestätigen |
-
-> Die Steuerung kann je nach Entwicklungsstand angepasst werden.
+- HTML5-Canvas-Spiel mit 960x540 Auflösung
+- Modularer JavaScript-Aufbau
+- Intro-Screen
+- Title-Screen
+- Credits-Screen
+- Kamera-System
+- Spielerbewegung mit Gravitation und Sprungmechanik
+- Plattform-Level
+- Gems / Collectibles
+- Bonusblöcke mit Rewards
+- Powerups
+- mehrere Waffentypen
+- Gegner mit Bewegung und Schusslogik
+- Level-FX wie Nebel, Sterne, Regen, Scanlines, Neon Dust und Warnlichter
+- Musik und Soundeffekte über AudioManager
+- Level-Complete-Screen
+- Game-Over-Screen
+- Boss-Level mit Phasenlogik
 
 ---
 
 ## 🧱 Projektstruktur
 
 ```text
-ShadowRunner/
+shadowrunner/
 ├── index.html
-├── assets/
-│   ├── audio/
-│   ├── backgrounds/
-│   ├── enemies/
-│   ├── player/
-│   └── effects/
+├── css/
+│   └── game.css
 ├── js/
 │   ├── main.js
+│   ├── config.js
 │   ├── player.js
-│   ├── enemies.js
-│   ├── levels.js
+│   ├── camera.js
+│   ├── collision.js
+│   ├── input.js
+│   ├── intro.js
+│   ├── titleScreen.js
+│   ├── creditsScreen.js
+│   ├── particles.js
+│   ├── powerups.js
 │   ├── weapons.js
-│   ├── audio.js
-│   └── effects.js
-└── README.md
+│   ├── audioManager.js
+│   ├── levelFx.js
+│   ├── levels.js
+│   ├── level1.js
+│   ├── level2.js
+│   ├── level3.js
+│   └── level4Boss.js
+└── assets/
+    ├── audio/
+    ├── backgrounds/
+    └── ui/
