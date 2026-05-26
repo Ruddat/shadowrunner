@@ -11,5 +11,11 @@ export const levels = [
 ];
 
 export function getLevel(index) {
-    return levels[index] ?? levels[levels.length - 1];
+    const level = levels[index] ?? levels[levels.length - 1];
+
+    if (typeof window !== 'undefined') {
+        window.currentLevel = level;
+    }
+
+    return level;
 }
