@@ -43,6 +43,7 @@ export class Player {
         this.prevY = this.y;
 
         this.updateShadowShift(dt);
+        this.syncShadowPlatforms(level);
 
         this.velocityX = 0;
 
@@ -128,6 +129,22 @@ export class Player {
 
         this.shadowShift = false;
         this.shadowEnergy = Math.min(100, this.shadowEnergy + 14 * dt);
+    }
+
+    syncShadowPlatforms(level) {
+        if (!level.basePlatforms) {
+            level.basePlatforms = [...level.platforms];
+        }
+
+        if (this.shadowShift && level.shadowPlatforms?.length) {
+            level.platforms = [
+                ...level.basePlatforms,
+                ...level.shadowPlatforms,
+            ];
+            return;
+        }
+
+        level.platforms = level.basePlatforms;
     }
 
     hit(level, damage = 25) {
