@@ -105,6 +105,12 @@ export const level1 = {
         },
     ],
 
+    keys: [
+        { x: 640, y: 320 },
+        { x: 1460, y: 320 },
+        { x: 2480, y: 340 },
+    ],
+
     enemies: [
         {
             canShoot: true,
@@ -185,6 +191,7 @@ export const level1 = {
         y: 302,
         width: 70,
         height: 100,
-        locked: false,
+        locked: true,
+        keysRequired: 3,
     },
 };
