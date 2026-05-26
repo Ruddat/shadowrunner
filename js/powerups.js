@@ -12,6 +12,7 @@ export const POWERUP_TYPES = {
     LIFE: 'life',
     ENERGY: 'energy',
     WEAPON: 'weapon',
+    KEY: 'key',
 };
 
 export function resolveReward(reward, randomPool = null) {
@@ -27,6 +28,7 @@ export function resolveReward(reward, randomPool = null) {
             POWERUP_TYPES.GEM,
             POWERUP_TYPES.ENERGY,
             POWERUP_TYPES.WEAPON,
+            POWERUP_TYPES.KEY,
             POWERUP_TYPES.LIFE,
         ];
 
@@ -105,6 +107,7 @@ export function getPowerupColor(itemOrType) {
 
     if (type === POWERUP_TYPES.LIFE) return '#22c55e';
     if (type === POWERUP_TYPES.ENERGY) return '#21e6ff';
+    if (type === POWERUP_TYPES.KEY) return '#facc15';
 
     if (type === POWERUP_TYPES.WEAPON) {
         const weaponId = typeof itemOrType === 'string' ? null : itemOrType.weaponId;
@@ -119,6 +122,7 @@ export function getPowerupLabel(itemOrType) {
 
     if (type === POWERUP_TYPES.LIFE) return '+';
     if (type === POWERUP_TYPES.ENERGY) return 'E';
+    if (type === POWERUP_TYPES.KEY) return 'K';
 
     if (type === POWERUP_TYPES.WEAPON) {
         const weaponId = typeof itemOrType === 'string' ? null : itemOrType.weaponId;
