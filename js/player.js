@@ -28,6 +28,8 @@ export class Player {
         this.energy = 100;
         this.shadowShift = false;
         this.shadowEnergy = 100;
+        this.shadowDashTimer = 0;
+        this.shadowDashCooldown = 0;
         this.weaponId = WEAPON_IDS.BLASTER;
         this.weaponLevel = 1;
 
@@ -43,6 +45,7 @@ export class Player {
         this.prevY = this.y;
 
         this.updateShadowShift(dt);
+        this.updateShadowDash(dt);
         this.syncShadowPlatforms(level);
 
         this.velocityX = 0;
@@ -59,6 +62,10 @@ export class Player {
 
         if (this.shadowShift) {
             this.velocityX *= 1.08;
+        }
+
+        if (this.shadowDashTimer > 0) {
+            this.velocityX += this.facing * 880;
         }
 
         if (keys.jump && this.onGround) {
@@ -129,6 +136,27 @@ export class Player {
 
         this.shadowShift = false;
         this.shadowEnergy = Math.min(100, this.shadowEnergy + 14 * dt);
+    }
+
+    updateShadowDash(dt) {
+        if (this.shadowDashCooldown > 0) {
+            this.shadowDashCooldown -= dt;
+        }
+
+        if (this.shadowDashTimer > 0) {
+            this.shadowDashTimer -= dt;
+        }
+
+        if (
+            keys.dash &&
+            this.shadowDashCooldown <= 0 &&
+            this.shadowEnergy >= 18
+        ) {
+            this.shadowDashTimer = 0.12;
+            this.shadowDashCooldown = 0.65;
+            this.shadowEnergy -= 18;
+            this.shadowShift = true;
+        }
     }
 
     syncShadowPlatforms(level) {
@@ -259,6 +287,8 @@ export class Player {
         this.velocityY = 0;
         this.shadowShift = false;
         this.shadowEnergy = 100;
+        this.shadowDashTimer = 0;
+        this.shadowDashCooldown = 0;
     }
 
     draw(ctx, camera) {
@@ -267,16 +297,19 @@ export class Player {
 
         ctx.save();
 
-        if (this.shadowShift) {
+        if (this.shadowShift || this.shadowDashTimer > 0) {
             ctx.shadowColor = '#7c3cff';
-            ctx.shadowBlur = 34;
-            ctx.fillStyle = 'rgba(124, 60, 255, 0.22)';
+            ctx.shadowBlur = this.shadowDashTimer > 0 ? 52 : 34;
+            ctx.fillStyle = this.shadowDashTimer > 0
+                ? 'rgba(124, 60, 255, 0.34)'
+                : 'rgba(124, 60, 255, 0.22)';
+
             ctx.beginPath();
             ctx.ellipse(
                 screenX + this.width / 2,
                 screenY + this.height / 2,
-                this.width * 0.95,
-                this.height * 0.72,
+                this.width * 1.15,
+                this.height * 0.82,
                 0,
                 0,
                 Math.PI * 2
