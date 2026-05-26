@@ -124,6 +124,18 @@ export const level1 = {
             health: 2,
         },
         {
+            shadowOnly: true,
+            x: 1220,
+            y: 262,
+            width: 46,
+            height: 50,
+            minX: 1120,
+            maxX: 1380,
+            speed: 140,
+            direction: 1,
+            health: 4,
+        },
+        {
             x: 1660,
             y: 332,
             width: 46,
