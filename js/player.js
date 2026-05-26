@@ -268,7 +268,12 @@ export class Player {
         if (!isValidWeaponId(weaponId)) return;
 
         if (this.weaponId === weaponId) {
-            this.weaponLevel = Math.min(this.weaponLevel + 1, 3);
+            this.upgradeWeapon();
+            return;
+        }
+
+        if (this.weaponId !== WEAPON_IDS.BLASTER && this.weaponLevel < 3) {
+            this.upgradeWeapon();
             return;
         }
 
