@@ -34,11 +34,16 @@ export class Player {
         this.weaponLevel = 1;
 
         this.gems = 0;
+        this.keys = 0;
         this.isGameOver = false;
         this.levelComplete = false;
 
         this.score = 0;
         this.deathsThisLevel = 0;
+
+        if (typeof window !== 'undefined') {
+            window.shadowRunnerPlayer = this;
+        }
     }
 
     update(dt, level) {
