@@ -193,5 +193,6 @@ export const level1 = {
         height: 100,
         locked: true,
         keysRequired: 3,
+        unlockMode: 'allGemsOrEnemiesOrKeys',
     },
 };
