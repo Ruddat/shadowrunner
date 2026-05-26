@@ -13,6 +13,27 @@ export const level1 = {
         { x: 2500, y: 402, width: 700, height: 40 },
     ],
 
+    shadowPlatforms: [
+        {
+            x: 930,
+            y: 240,
+            width: 140,
+            height: 24,
+        },
+        {
+            x: 1390,
+            y: 180,
+            width: 140,
+            height: 24,
+        },
+        {
+            x: 2320,
+            y: 220,
+            width: 160,
+            height: 24,
+        },
+    ],
+
     gems: [
         { x: 240, y: 342, collected: false },
         { x: 330, y: 342, collected: false },
@@ -44,7 +65,6 @@ export const level1 = {
             reward: 'gem',
         },
 
-        // Erste echte Waffe: Spread Shot
         {
             x: 1180,
             y: 152,
@@ -56,7 +76,6 @@ export const level1 = {
             weaponId: 'spread',
         },
 
-        // Zweiter Waffen-/Powerup-Block: später im Level mehr Druck
         {
             x: 1740,
             y: 252,
@@ -68,7 +87,6 @@ export const level1 = {
             weaponId: 'laser',
         },
 
-        // Optionaler Random-Block Richtung Ende
         {
             x: 2260,
             y: 202,
