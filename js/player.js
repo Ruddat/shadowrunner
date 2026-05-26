@@ -26,6 +26,8 @@ export class Player {
         this.shootCooldown = 0;
 
         this.energy = 100;
+        this.shadowShift = false;
+        this.shadowEnergy = 100;
         this.weaponId = WEAPON_IDS.BLASTER;
         this.weaponLevel = 1;
 
@@ -40,6 +42,8 @@ export class Player {
     update(dt, level) {
         this.prevY = this.y;
 
+        this.updateShadowShift(dt);
+
         this.velocityX = 0;
 
         if (keys.left) {
@@ -52,8 +56,12 @@ export class Player {
             this.facing = 1;
         }
 
+        if (this.shadowShift) {
+            this.velocityX *= 1.08;
+        }
+
         if (keys.jump && this.onGround) {
-            this.velocityY = -CONFIG.jumpForce;
+            this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 1.06 : -CONFIG.jumpForce;
             this.onGround = false;
         }
 
@@ -98,7 +106,6 @@ export class Player {
             }
         }
 
-
         if (this.x < 0) this.x = 0;
         if (this.x > CONFIG.worldWidth - this.width) {
             this.x = CONFIG.worldWidth - this.width;
@@ -112,15 +119,26 @@ export class Player {
         }
     }
 
+    updateShadowShift(dt) {
+        if (keys.shadow && this.shadowEnergy > 0) {
+            this.shadowShift = true;
+            this.shadowEnergy = Math.max(0, this.shadowEnergy - 28 * dt);
+            return;
+        }
+
+        this.shadowShift = false;
+        this.shadowEnergy = Math.min(100, this.shadowEnergy + 14 * dt);
+    }
 
     hit(level, damage = 25) {
         if (this.isGameOver) return;
         if (this.invincibleTimer > 0) return;
 
-        this.energy = Math.max(0, this.energy - damage);
+        const finalDamage = this.shadowShift ? damage * 0.75 : damage;
+
+        this.energy = Math.max(0, this.energy - finalDamage);
         this.invincibleTimer = 1.0;
 
-        // Solange noch Energie da ist: kein Leben verlieren, kein Respawn.
         if (this.energy > 0) {
             return;
         }
@@ -169,7 +187,7 @@ export class Player {
             );
         }
         this.playWeaponSound();
-        this.shootCooldown = weapon.fireRate;
+        this.shootCooldown = this.shadowShift ? weapon.fireRate * 0.85 : weapon.fireRate;
     }
 
     playWeaponSound() {
@@ -201,7 +219,6 @@ export class Player {
         playSound('shootBlaster');
     }
 
-
     setWeapon(weaponId) {
         if (!isValidWeaponId(weaponId)) return;
 
@@ -223,6 +240,8 @@ export class Player {
         this.y = level.spawn.y;
         this.velocityX = 0;
         this.velocityY = 0;
+        this.shadowShift = false;
+        this.shadowEnergy = 100;
     }
 
     draw(ctx, camera) {
@@ -231,16 +250,33 @@ export class Player {
 
         ctx.save();
 
-        ctx.shadowColor = '#ff2bd6';
-        ctx.shadowBlur = 18;
+        if (this.shadowShift) {
+            ctx.shadowColor = '#7c3cff';
+            ctx.shadowBlur = 34;
+            ctx.fillStyle = 'rgba(124, 60, 255, 0.22)';
+            ctx.beginPath();
+            ctx.ellipse(
+                screenX + this.width / 2,
+                screenY + this.height / 2,
+                this.width * 0.95,
+                this.height * 0.72,
+                0,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
 
-        ctx.fillStyle = '#111827';
+        ctx.shadowColor = this.shadowShift ? '#64f4ff' : '#ff2bd6';
+        ctx.shadowBlur = this.shadowShift ? 26 : 18;
+
+        ctx.fillStyle = this.shadowShift ? '#101033' : '#111827';
         ctx.fillRect(screenX, screenY, this.width, this.height);
 
-        ctx.fillStyle = '#ff2bd6';
+        ctx.fillStyle = this.shadowShift ? '#64f4ff' : '#ff2bd6';
         ctx.fillRect(screenX + 8, screenY + 12, 26, 10);
 
-        ctx.fillStyle = '#21e6ff';
+        ctx.fillStyle = this.shadowShift ? '#b388ff' : '#21e6ff';
         ctx.fillRect(
             screenX + (this.facing === 1 ? 30 : 4),
             screenY + 28,
