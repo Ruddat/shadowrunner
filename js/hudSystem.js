@@ -11,7 +11,7 @@ import { drawCenterMessage } from './screens.js';
 import { neonSync } from './neonSync.js';
 
 export function drawHud() {
-    const { ctx, player } = state;
+    const { ctx, player, currentLevel: level, camera } = state;
 
     ctx.save();
 
@@ -20,6 +20,12 @@ export function drawHud() {
     drawBottomPanel();
 
     ctx.restore();
+
+    // Mini-Map / Radar (top-right corner)
+    drawMiniMap();
+
+    // Combo display (below mini-map)
+    drawComboDisplay();
 
     // Neon-Sync: Beat indicator dot in corner (subtle visual feedback)
     if (neonSync.isActive && neonSync.timeSinceBeat < 0.2) {
@@ -330,6 +336,200 @@ function drawBottomHudValues(x, y, hudWidth, hudHeight) {
     ctx.fillText(`${player.keys ?? 0} / 3`, x + 565 * scaleX, y + 57 * scaleY);
 
     ctx.fillText(`x ${player.lives}`, x + 750 * scaleX, y + 57 * scaleY);
+
+    ctx.restore();
+}
+
+// --- Mini-Map / Radar ---
+
+/**
+ * Draws a minimap in the top-right corner showing:
+ * - Player position (cyan dot)
+ * - Enemies (red dots)
+ * - Boss (large pink dot)
+ * - Exit (green dot)
+ * - Gems (diamond markers)
+ * - Floating items (yellow dots)
+ * - Camera viewport outline
+ */
+function drawMiniMap() {
+    const { ctx, player, currentLevel: level, camera } = state;
+    if (!level) return;
+
+    // Mini-Map dimensions and position
+    const mapW = 180;
+    const mapH = 40;
+    const mapX = CONFIG.width - mapW - 12;
+    const mapY = 166;
+
+    // Calculate world bounds
+    let maxX = CONFIG.worldWidth;
+    let maxY = CONFIG.height;
+
+    // Find actual level extent
+    if (level.exit) {
+        maxX = Math.max(maxX, level.exit.x + level.exit.width + 100);
+    }
+
+    const scaleX = mapW / maxX;
+    const scaleY = mapH / maxY;
+
+    ctx.save();
+
+    // Background
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.75)';
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+
+    // Border
+    ctx.strokeStyle = 'rgba(33, 230, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mapX, mapY, mapW, mapH);
+
+    // Camera viewport rectangle
+    const camX = mapX + camera.x * scaleX;
+    const camY = mapY + camera.y * scaleY;
+    const camW = CONFIG.width * scaleX;
+    const camH = CONFIG.height * scaleY;
+    ctx.strokeStyle = 'rgba(33, 230, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(camX, camY, camW, camH);
+
+    // Enemies (red dots)
+    if (level.enemies) {
+        ctx.fillStyle = '#ff003c';
+        for (const enemy of level.enemies) {
+            if (enemy.active === false) continue;
+            const dotX = mapX + (enemy.x + enemy.width / 2) * scaleX;
+            const dotY = mapY + (enemy.y + enemy.height / 2) * scaleY;
+            ctx.fillRect(dotX - 1.5, dotY - 1.5, 3, 3);
+        }
+    }
+
+    // Boss (large pink dot)
+    if (level.boss && level.boss.active !== false) {
+        ctx.fillStyle = '#ff2bd6';
+        ctx.shadowColor = '#ff2bd6';
+        ctx.shadowBlur = 4;
+        const bossX = mapX + (level.boss.x + level.boss.width / 2) * scaleX;
+        const bossY = mapY + (level.boss.y + level.boss.height / 2) * scaleY;
+        ctx.beginPath();
+        ctx.arc(bossX, bossY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // Exit (green dot)
+    if (level.exit && !level.exit.locked) {
+        ctx.fillStyle = '#22c55e';
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = 4;
+        const exitX = mapX + (level.exit.x + level.exit.width / 2) * scaleX;
+        const exitY = mapY + (level.exit.y + level.exit.height / 2) * scaleY;
+        ctx.beginPath();
+        ctx.arc(exitX, exitY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    } else if (level.exit) {
+        // Locked exit = dim red
+        ctx.fillStyle = 'rgba(255, 0, 60, 0.5)';
+        const exitX = mapX + (level.exit.x + level.exit.width / 2) * scaleX;
+        const exitY = mapY + (level.exit.y + level.exit.height / 2) * scaleY;
+        ctx.beginPath();
+        ctx.arc(exitX, exitY, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Uncollected gems (small diamond shapes)
+    if (level.gems) {
+        ctx.fillStyle = 'rgba(255, 43, 214, 0.6)';
+        for (const gem of level.gems) {
+            if (gem.collected) continue;
+            const gx = mapX + (gem.x + 13) * scaleX;
+            const gy = mapY + (gem.y + 13) * scaleY;
+            ctx.fillRect(gx - 1, gy - 1, 2, 2);
+        }
+    }
+
+    // Player (bright cyan dot with glow)
+    const playerDotX = mapX + (player.x + player.width / 2) * scaleX;
+    const playerDotY = mapY + (player.y + player.height / 2) * scaleY;
+    ctx.fillStyle = '#21e6ff';
+    ctx.shadowColor = '#21e6ff';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(playerDotX, playerDotY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // "RADAR" label
+    ctx.fillStyle = 'rgba(33, 230, 255, 0.5)';
+    ctx.font = '700 8px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('RADAR', mapX + 4, mapY + 8);
+
+    ctx.restore();
+}
+
+// --- Combo Display ---
+
+/**
+ * Draws the combo multiplier and kill count in the top-right area
+ * below the mini-map. Pulses and glows when combo is active.
+ */
+function drawComboDisplay() {
+    const { ctx, player } = state;
+
+    if (player.comboCount <= 0) return;
+
+    const baseX = CONFIG.width - 192;
+    const baseY = 210;
+
+    ctx.save();
+
+    // Combo timer bar (how much time before combo resets)
+    const timerRatio = player.comboTimer / player.comboDecayTime;
+
+    // Background
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.7)';
+    ctx.fillRect(baseX, baseY, 180, 32);
+
+    // Timer bar
+    const barColor = player.comboMultiplier >= 5 ? '#facc15'
+        : player.comboMultiplier >= 3 ? '#ff2bd6'
+        : '#21e6ff';
+
+    ctx.fillStyle = barColor;
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(baseX, baseY, 180 * timerRatio, 32);
+    ctx.globalAlpha = 1;
+
+    // Border
+    ctx.strokeStyle = barColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(baseX, baseY, 180, 32);
+
+    // Multiplier text
+    ctx.shadowColor = barColor;
+    ctx.shadowBlur = player.comboMultiplier >= 3 ? 12 : 6;
+    ctx.fillStyle = barColor;
+    ctx.font = '900 16px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`x${player.comboMultiplier}`, baseX + 8, baseY + 21);
+
+    // Kill count
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 12px monospace';
+    ctx.fillText(`${player.comboCount} KILLS`, baseX + 60, baseY + 21);
+
+    // Pulse effect on beat
+    if (neonSync.isActive && neonSync.timeSinceBeat < 0.15 && player.comboMultiplier >= 2) {
+        const pulseAlpha = (1 - neonSync.timeSinceBeat / 0.15) * 0.3;
+        ctx.fillStyle = barColor;
+        ctx.globalAlpha = pulseAlpha;
+        ctx.fillRect(baseX, baseY, 180, 32);
+        ctx.globalAlpha = 1;
+    }
 
     ctx.restore();
 }

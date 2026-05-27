@@ -27,3 +27,52 @@ export function resolvePlatformCollision(player, platforms) {
         }
     }
 }
+
+/**
+ * Detect if the player is touching a wall on either side.
+ * Returns { left: bool, right: bool, wallTouching: 'left'|'right'|null }
+ * A "wall" is any platform where the player's side overlaps
+ * but they are NOT standing on top of it.
+ */
+export function detectWallContact(player, platforms) {
+    let touchingLeft = false;
+    let touchingRight = false;
+
+    const margin = 4; // how close to wall to trigger slide
+
+    for (const platform of platforms) {
+        // Skip if player is above or below platform
+        if (player.y + player.height <= platform.y + margin) continue;
+        if (player.y >= platform.y + platform.height - margin) continue;
+
+        // Check LEFT wall: player's left side touches platform's right side
+        const playerLeft = player.x;
+        const platformRight = platform.x + platform.width;
+
+        if (
+            playerLeft <= platformRight &&
+            playerLeft >= platformRight - margin &&
+            player.velocityX <= 0
+        ) {
+            touchingLeft = true;
+        }
+
+        // Check RIGHT wall: player's right side touches platform's left side
+        const playerRight = player.x + player.width;
+        const platformLeft = platform.x;
+
+        if (
+            playerRight >= platformLeft &&
+            playerRight <= platformLeft + margin &&
+            player.velocityX >= 0
+        ) {
+            touchingRight = true;
+        }
+    }
+
+    return {
+        left: touchingLeft,
+        right: touchingRight,
+        wallSide: touchingLeft ? 'left' : (touchingRight ? 'right' : null),
+    };
+}

@@ -86,6 +86,7 @@ export function loadNextLevel() {
     player.levelComplete = false;
     player.gems = 0;
     player.keys = 0;
+    player.resetCombo();
 
     camera.x = 0;
     camera.y = 0;
@@ -129,6 +130,10 @@ export function startNewGame() {
     player.shadowEnergy = 100;
     player.shadowDashTimer = 0;
     player.shadowDashCooldown = 0;
+    player.wallSliding = false;
+    player.wallSide = null;
+    player.wallJumpCooldown = 0;
+    player.resetCombo();
 
     player.weaponId = WEAPON_IDS.BLASTER;
     player.weaponLevel = 1;
@@ -139,6 +144,10 @@ export function startNewGame() {
     player.levelComplete = false;
     player.isGameOver = false;
     player.deathsThisLevel = 0;
+    player.wallSliding = false;
+    player.wallSide = null;
+    player.wallJumpCooldown = 0;
+    player.resetCombo();
 
     camera.x = 0;
     camera.y = 0;
@@ -420,6 +429,12 @@ export function updateProjectiles(dt) {
                 if (enemy.health <= 0) {
                     enemy.active = false;
 
+                    // Combo system: register kill
+                    player.registerKill();
+                    const comboMsg = player.comboMultiplier > 1
+                        ? `x${player.comboMultiplier} COMBO!`
+                        : undefined;
+
                     spawnParticles(
                         enemy.x + enemy.width / 2,
                         enemy.y + enemy.height / 2,
@@ -429,6 +444,10 @@ export function updateProjectiles(dt) {
 
                     camera.shake(9, 0.22);
                     state.messageTimer = 0.6;
+
+                    if (comboMsg) {
+                        showCenterMessage(comboMsg, 0.7);
+                    }
                 }
 
                 continue;
@@ -559,6 +578,9 @@ function damageEnemiesInRadius(centerX, centerY, radius, damage) {
 
         if (enemy.health <= 0) {
             enemy.active = false;
+
+            // Combo system: register kill for AOE too
+            player.registerKill();
 
             spawnParticles(
                 enemyCenterX,

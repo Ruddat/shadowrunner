@@ -6,6 +6,12 @@ export const CONFIG = {
     moveSpeed: 360,
     jumpForce: 760,
 
+    // Wall-Jump / Wall-Slide
+    wallSlideGravity: 280,      // much slower fall when sliding
+    wallJumpForceX: 520,        // horizontal push away from wall
+    wallJumpForceY: 720,        // vertical boost (slightly less than normal jump)
+    wallSlideThreshold: 80,     // min fall speed before slide activates
+
     worldWidth: 4900,
     groundY: 460,
 };
