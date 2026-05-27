@@ -6,6 +6,6 @@ export const CONFIG = {
     moveSpeed: 360,
     jumpForce: 760,
 
-    worldWidth: 4300,
+    worldWidth: 4900,
     groundY: 460,
 };

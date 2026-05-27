@@ -38,7 +38,7 @@ import {
     handleTitleKey,
     handleTitleClick,
 } from './titleScreen.js';
-import { initCreditsScreen } from './creditsScreen.js';
+import { initCreditsScreen, updateCreditsScreen, drawCreditsScreen } from './creditsScreen.js';
 
 // New modules
 import { state } from './gameState.js';
@@ -59,6 +59,7 @@ import {
     initializeLevelState,
     loadNextLevel,
     retryCurrentLevel,
+    startNewGame,
     updateGems,
     updateExit,
     updateBonusBlocks,
@@ -221,23 +222,46 @@ function drawBackground() {
 }
 
 function drawPlatforms() {
-    const { currentLevel, camera } = state;
+    const { currentLevel, camera, player } = state;
+    const isShadow = player?.shadowShift;
+
     for (const platform of currentLevel.platforms) {
         const x = platform.x - camera.x;
         const y = platform.y - camera.y;
 
+        // Shadow platforms have a different visual style
+        const isShadowPlatform = platform.height === 24;
+
         ctx.save();
-        ctx.shadowColor = '#ff2bd6';
-        ctx.shadowBlur = 18;
 
-        ctx.fillStyle = '#16162e';
-        ctx.fillRect(x, y, platform.width, platform.height);
+        if (isShadowPlatform) {
+            // Shadow platforms: purple/violet glow, semi-transparent when not in shadow mode
+            const alpha = isShadow ? 1 : 0.15;
+            ctx.globalAlpha = alpha;
+            ctx.shadowColor = '#b388ff';
+            ctx.shadowBlur = isShadow ? 22 : 4;
 
-        ctx.fillStyle = '#ff2bd6';
-        ctx.fillRect(x, y, platform.width, 5);
+            ctx.fillStyle = '#1a0a30';
+            ctx.fillRect(x, y, platform.width, platform.height);
 
-        ctx.fillStyle = '#21e6ff';
-        ctx.fillRect(x, y + platform.height - 4, platform.width, 4);
+            ctx.fillStyle = '#b388ff';
+            ctx.fillRect(x, y, platform.width, 4);
+
+            ctx.fillStyle = '#7c3cff';
+            ctx.fillRect(x, y + platform.height - 3, platform.width, 3);
+        } else {
+            ctx.shadowColor = '#ff2bd6';
+            ctx.shadowBlur = 18;
+
+            ctx.fillStyle = '#16162e';
+            ctx.fillRect(x, y, platform.width, platform.height);
+
+            ctx.fillStyle = '#ff2bd6';
+            ctx.fillRect(x, y, platform.width, 5);
+
+            ctx.fillStyle = '#21e6ff';
+            ctx.fillRect(x, y + platform.height - 4, platform.width, 4);
+        }
 
         ctx.restore();
     }
@@ -480,7 +504,12 @@ window.addEventListener('keydown', (e) => {
             state.gameState = 'credits';
         }
 
-        if (action === 'NEW GAME' || action === 'CONTINUE') {
+        if (action === 'NEW GAME') {
+            stopMusic();
+            startNewGame();
+        }
+
+        if (action === 'CONTINUE') {
             stopMusic();
             playMusic(state.currentLevel.music ?? 'level1');
             state.gameState = 'playing';
@@ -548,7 +577,12 @@ canvas.addEventListener('click', () => {
     if (state.gameState === 'title') {
         const action = handleTitleClick();
 
-        if (action === 'NEW GAME' || action === 'CONTINUE') {
+        if (action === 'NEW GAME') {
+            stopMusic();
+            startNewGame();
+        }
+
+        if (action === 'CONTINUE') {
             stopMusic();
             playMusic(state.currentLevel.music ?? 'level1');
             state.gameState = 'playing';

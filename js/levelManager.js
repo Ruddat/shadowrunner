@@ -22,7 +22,7 @@ import {
 import { playSound, stopMusic, playMusic } from './audioManager.js';
 import { damageBossInRadius } from './bossSystem.js';
 import { initLevelFx } from './levelFx.js';
-import { getLevel, LEVEL_COUNT } from './levels.js';
+import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
@@ -67,7 +67,7 @@ export function loadNextLevel() {
 
     state.currentLevelIndex++;
 
-    // BUG FIX: Detect game completion instead of repeating boss endlessly
+    // Detect game completion after all 5 levels
     if (state.currentLevelIndex >= LEVEL_COUNT) {
         state.gameState = 'credits';
         return;
@@ -86,7 +86,7 @@ export function loadNextLevel() {
     player.velocityY = 0;
     player.levelComplete = false;
     player.gems = 0;
-    player.keys = 0;  // BUG FIX: Reset keys between levels
+    player.keys = 0;
 
     camera.x = 0;
     camera.y = 0;
@@ -100,6 +100,63 @@ export function loadNextLevel() {
     initializeLevelState(state.currentLevel);
     player.deathsThisLevel = 0;
     state.levelStats = createLevelStats(state.currentLevel);
+}
+
+/**
+ * Start a brand new game from level 1.
+ * Regenerates the procedural level so each playthrough is unique.
+ */
+export function startNewGame() {
+    const { player, camera, projectiles, bossProjectiles, enemyProjectiles } = state;
+
+    // Generate a fresh procedural level for this playthrough
+    regenerateProceduralLevel();
+
+    state.currentLevelIndex = 0;
+    state.currentLevel = getLevel(0);
+    state.levelBackground.src = state.currentLevel.background;
+
+    player.x = state.currentLevel.spawn.x;
+    player.y = state.currentLevel.spawn.y;
+    player.prevY = state.currentLevel.spawn.y;
+    player.velocityX = 0;
+    player.velocityY = 0;
+
+    player.lives = 3;
+    player.energy = 100;
+    player.invincibleTimer = 0;
+    player.shootCooldown = 0;
+    player.shadowShift = false;
+    player.shadowEnergy = 100;
+    player.shadowDashTimer = 0;
+    player.shadowDashCooldown = 0;
+
+    player.weaponId = WEAPON_IDS.BLASTER;
+    player.weaponLevel = 1;
+
+    player.gems = 0;
+    player.keys = 0;
+    player.score = 0;
+    player.levelComplete = false;
+    player.isGameOver = false;
+    player.deathsThisLevel = 0;
+
+    camera.x = 0;
+    camera.y = 0;
+
+    initLevelFx();
+
+    projectiles.length = 0;
+    bossProjectiles.length = 0;
+    enemyProjectiles.length = 0;
+    floatingItems.length = 0;
+
+    initializeLevelState(state.currentLevel);
+    state.levelStats = createLevelStats(state.currentLevel);
+    state.gameOverStats = null;
+
+    playMusic(state.currentLevel.music ?? 'level1');
+    state.gameState = 'playing';
 }
 
 export function retryCurrentLevel() {
