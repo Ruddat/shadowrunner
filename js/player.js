@@ -7,6 +7,7 @@ import { playSound } from './audioManager.js';
 import { spawnParticles } from './particles.js';
 import { rectsOverlap } from './collision.js';
 import { showCenterMessage } from './screens.js';
+import { state } from './gameState.js';
 
 export class Player {
     constructor(x, y) {
@@ -518,8 +519,14 @@ export class Player {
     }
 
     respawn(level) {
-        this.x = level.spawn.x;
-        this.y = level.spawn.y;
+        // Use checkpoint position if available, otherwise level spawn
+        if (state.checkpoint) {
+            this.x = state.checkpoint.x;
+            this.y = state.checkpoint.y;
+        } else {
+            this.x = level.spawn.x;
+            this.y = level.spawn.y;
+        }
         this.velocityX = 0;
         this.velocityY = 0;
         this.shadowShift = false;

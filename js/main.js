@@ -547,9 +547,7 @@ window.addEventListener('keydown', (e) => {
         }
 
         if (action === 'CONTINUE') {
-            stopMusic();
-            playMusic(state.currentLevel.music ?? 'level1');
-            state.gameState = 'playing';
+            continueFromSave();
         }
 
         if (action === 'EXIT') {
@@ -631,9 +629,7 @@ canvas.addEventListener('click', () => {
         }
 
         if (action === 'CONTINUE') {
-            stopMusic();
-            playMusic(state.currentLevel.music ?? 'level1');
-            state.gameState = 'playing';
+            continueFromSave();
         }
 
         if (action === 'CREDITS') {
@@ -663,6 +659,68 @@ canvas.addEventListener('click', () => {
         return;
     }
 });
+
+// --- Continue from Save ---
+
+function continueFromSave() {
+    stopMusic();
+    const saveData = loadGame();
+    if (saveData) {
+        // Restore from save: load the saved level
+        state.currentLevelIndex = saveData.levelIndex;
+        state.currentLevel = getLevel(saveData.levelIndex);
+        state.levelBackground.src = state.currentLevel.background;
+
+        // Restore player state
+        state.player.lives = saveData.lives;
+        state.player.score = saveData.score;
+        state.player.weaponId = saveData.weaponId;
+        state.player.weaponLevel = saveData.weaponLevel;
+        state.player.gems = saveData.gems;
+        state.player.keys = saveData.keys ?? 0;
+        state.player.x = saveData.checkpointX;
+        state.player.y = saveData.checkpointY;
+        state.player.prevY = saveData.checkpointY;
+        state.player.velocityX = 0;
+        state.player.velocityY = 0;
+        state.player.energy = 100;
+        state.player.invincibleTimer = 0;
+        state.player.shootCooldown = 0;
+        state.player.shadowShift = false;
+        state.player.shadowEnergy = 100;
+        state.player.shadowDashTimer = 0;
+        state.player.shadowDashCooldown = 0;
+        state.player.wallSliding = false;
+        state.player.wallSide = null;
+        state.player.wallJumpCooldown = 0;
+        state.player.resetCombo();
+
+        state.camera.x = 0;
+        state.camera.y = 0;
+        initLevelFx();
+        state.projectiles.length = 0;
+        state.bossProjectiles.length = 0;
+        state.enemyProjectiles.length = 0;
+
+        // Set checkpoint from save so respawn works correctly
+        state.checkpoint = { x: saveData.checkpointX, y: saveData.checkpointY };
+        state.checkpointGems = saveData.gems;
+        state.checkpointKeys = saveData.keys ?? 0;
+
+        initializeLevelState(state.currentLevel);
+        state.levelStats = createLevelStats(state.currentLevel);
+        state.gameOverStats = null;
+        state.player.levelComplete = false;
+        state.player.isGameOver = false;
+        state.player.deathsThisLevel = 0;
+
+        playMusic(state.currentLevel.music ?? 'level1');
+        state.gameState = 'playing';
+    } else {
+        // No save available, just start a new game
+        startNewGame();
+    }
+}
 
 // --- Pause System ---
 

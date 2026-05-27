@@ -24,6 +24,7 @@ import { damageBossInRadius } from './bossSystem.js';
 import { isShieldBlocking, damageShield } from './enemySystem.js';
 import { initLevelFx } from './levelFx.js';
 import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
+import { deleteSave } from './saveSystem.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
@@ -68,9 +69,10 @@ export function loadNextLevel() {
 
     state.currentLevelIndex++;
 
-    // Detect game completion after all 5 levels
+    // Detect game completion after all levels
     if (state.currentLevelIndex >= LEVEL_COUNT) {
         state.gameState = 'credits';
+        deleteSave(); // Clear save on game completion
         return;
     }
 

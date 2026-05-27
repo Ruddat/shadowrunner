@@ -12,6 +12,6 @@ export const CONFIG = {
     wallJumpForceY: 720,        // vertical boost (slightly less than normal jump)
     wallSlideThreshold: 80,     // min fall speed before slide activates
 
-    worldWidth: 4900,
+    worldWidth: 5200,
     groundY: 460,
 };

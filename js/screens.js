@@ -7,6 +7,7 @@ import { CONFIG } from './config.js';
 import { spawnParticles } from './particles.js';
 import { state } from './gameState.js';
 import { stopMusic, playMusic } from './audioManager.js';
+import { saveGame } from './saveSystem.js';
 
 const LEVEL_COMPLETE_UI = {
     panel: {
@@ -534,6 +535,9 @@ export function completeLevel({ bossDefeated = false } = {}) {
     projectiles.length = 0;
     bossProjectiles.length = 0;
     enemyProjectiles.length = 0;
+
+    // Auto-save on level completion
+    saveGame(state);
 
     stopMusic();
     playMusic('levelComplete');

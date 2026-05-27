@@ -186,6 +186,19 @@ function shootBossPattern(boss, phaseConfig, bossProjectiles) {
         return;
     }
 
+    if (pattern === 'spiralBurst') {
+        // 8 projectiles in a spiral pattern
+        const baseAngle = Math.atan2(
+            state.player.y + state.player.height / 2 - (boss.y + (phaseConfig.fireY ?? 55)),
+            state.player.x + state.player.width / 2 - (boss.x + boss.width / 2)
+        );
+        for (let i = 0; i < 8; i++) {
+            const angle = baseAngle + (i * Math.PI * 2 / 8);
+            shootBossProjectileAtAngle(boss, phaseConfig, angle, bossProjectiles);
+        }
+        return;
+    }
+
     shootBossProjectile(boss, phaseConfig, 0, bossProjectiles);
 }
 
@@ -246,6 +259,31 @@ function shootBossAimedProjectile(boss, phaseConfig, bossProjectiles, angleOffse
         damage: phaseConfig.damage ?? 35,
         color: phaseConfig.projectileColor ?? '#ff003c',
         glow: phaseConfig.projectileGlow ?? '#ff003c',
+        active: true,
+    });
+}
+
+/**
+ * Shoot a boss projectile at an absolute angle (radians).
+ * Used by spiralBurst pattern.
+ */
+function shootBossProjectileAtAngle(boss, phaseConfig, angle, bossProjectiles) {
+    const speed = phaseConfig.projectileSpeed ?? 400;
+
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+
+    bossProjectiles.push({
+        x: boss.x + boss.width / 2,
+        y: boss.y + (phaseConfig.fireY ?? 55),
+        width: phaseConfig.projectileWidth ?? 28,
+        height: phaseConfig.projectileHeight ?? 12,
+        vx,
+        vy,
+        speed,
+        damage: phaseConfig.damage ?? 40,
+        color: phaseConfig.projectileColor ?? '#ff2bd6',
+        glow: phaseConfig.projectileGlow ?? '#ff2bd6',
         active: true,
     });
 }
@@ -360,6 +398,20 @@ export function drawBoss() {
 
     ctx.save();
 
+    // Different visual per boss type (determined by level name)
+    const bossName = level.name ?? '';
+    if (bossName === 'Overlord Core') {
+        drawOverlordCore(ctx, boss, x, y);
+    } else {
+        drawFactoryGuardian(ctx, boss, x, y);
+    }
+
+    ctx.restore();
+
+    drawBossHealthBar(boss);
+}
+
+function drawFactoryGuardian(ctx, boss, x, y) {
     ctx.shadowColor = boss.phase === 2 ? '#ff003c' : '#ff2bd6';
     ctx.shadowBlur = 26;
 
@@ -374,10 +426,81 @@ export function drawBoss() {
 
     ctx.fillStyle = '#facc15';
     ctx.fillRect(x + 42, y - 18, 26, 18);
+}
 
-    ctx.restore();
+function drawOverlordCore(ctx, boss, x, y) {
+    // Phase-dependent glow
+    const glowColor = boss.phase === 4 ? '#ffffff'
+        : boss.phase === 3 ? '#ff2bd6'
+        : boss.phase === 2 ? '#facc15'
+        : '#7c3aed';
 
-    drawBossHealthBar(boss);
+    // Pulsing aura
+    const pulse = Math.sin(Date.now() / 200) * 0.15 + 0.85;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 30 * pulse;
+
+    // Main body - darker, more menacing
+    ctx.fillStyle = '#0a0510';
+    ctx.fillRect(x, y, boss.width, boss.height);
+
+    // Core eye - the central weak point
+    ctx.fillStyle = glowColor;
+    ctx.beginPath();
+    ctx.arc(x + boss.width / 2, y + boss.height / 2, 18 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner pupil
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x + boss.width / 2, y + boss.height / 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Circuit patterns on the body
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+
+    // Left circuit
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y + 20);
+    ctx.lineTo(x + 30, y + 35);
+    ctx.lineTo(x + 30, y + 60);
+    ctx.stroke();
+
+    // Right circuit
+    ctx.beginPath();
+    ctx.moveTo(x + boss.width - 10, y + 20);
+    ctx.lineTo(x + boss.width - 30, y + 35);
+    ctx.lineTo(x + boss.width - 30, y + 60);
+    ctx.stroke();
+
+    // Top energy rings
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.arc(x + boss.width / 2, y - 8, 16, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x + boss.width / 2, y - 8, 8, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Side vents
+    ctx.fillStyle = glowColor;
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(x - 8, y + 30, 8, 20);
+    ctx.fillRect(x + boss.width, y + 30, 8, 20);
+    ctx.globalAlpha = 1;
+
+    // Bottom energy lines
+    ctx.fillStyle = glowColor;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(x + 15, y + boss.height - 10, boss.width - 30, 3);
+    ctx.fillRect(x + 20, y + boss.height - 5, boss.width - 40, 2);
+    ctx.globalAlpha = 1;
 }
 
 function drawBossHealthBar(boss) {
@@ -403,7 +526,9 @@ function drawBossHealthBar(boss) {
     ctx.fillStyle = '#ffffff';
     ctx.font = '900 14px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('FACTORY GUARDIAN', CONFIG.width / 2, y - 8);
+    // Use level name for boss health bar, fallback to FACTORY GUARDIAN
+    const bossName = state.currentLevel?.name ?? 'FACTORY GUARDIAN';
+    ctx.fillText(bossName, CONFIG.width / 2, y - 8);
 
     ctx.restore();
 }
