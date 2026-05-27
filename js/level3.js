@@ -88,6 +88,11 @@ export const level3 = {
         },
     ],
 
+    checkpoints: [
+        { x: 1580, y: 250, width: 60, height: 80, activated: false },
+        { x: 2620, y: 340, width: 60, height: 80, activated: false },
+    ],
+
     enemies: [
         {
             x: 690,

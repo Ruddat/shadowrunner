@@ -111,6 +111,11 @@ export const level1 = {
         { x: 2480, y: 340 },
     ],
 
+    checkpoints: [
+        { x: 1500, y: 340, width: 60, height: 80, activated: false },
+        { x: 2500, y: 360, width: 60, height: 80, activated: false },
+    ],
+
     enemies: [
         {
             canShoot: true,

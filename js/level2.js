@@ -156,6 +156,12 @@ export const level2 = {
         },
     ],
 
+    checkpoints: [
+        { x: 1620, y: 290, width: 60, height: 80, activated: false },
+        { x: 2620, y: 360, width: 60, height: 80, activated: false },
+        { x: 3600, y: 250, width: 60, height: 80, activated: false },
+    ],
+
     enemies: [
         // Erster Gegner: leicht
         {

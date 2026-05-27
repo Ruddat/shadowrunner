@@ -98,6 +98,16 @@ export function loadNextLevel() {
     bossProjectiles.length = 0;
     enemyProjectiles.length = 0;
 
+    // Reset checkpoints for new level
+    state.checkpoint = null;
+    state.checkpointGems = 0;
+    state.checkpointKeys = 0;
+    if (state.currentLevel.checkpoints) {
+        for (const cp of state.currentLevel.checkpoints) {
+            cp.activated = false;
+        }
+    }
+
     initializeLevelState(state.currentLevel);
     player.deathsThisLevel = 0;
     state.levelStats = createLevelStats(state.currentLevel);

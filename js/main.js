@@ -77,6 +77,9 @@ import { updateKeyPortalSystem, drawKeyPortalSystem } from './key-portal-system.
 // Neon-Sync: Music-driven visual effects
 import { initNeonSync, updateNeonSync, neonSync } from './neonSync.js';
 
+// Save / Load / Pause / Checkpoint
+import { saveGame, loadGame, hasSaveGame, deleteSave } from './saveSystem.js';
+
 // --- Init ---
 
 const hudBottomImage = new Image();
@@ -130,6 +133,9 @@ initNeonSync(); // Neon-Sync: AudioContext + AnalyserNode
 
 function update(dt) {
     const { player, camera } = state;
+
+    // Pause: freeze all updates
+    if (state.paused) return;
 
     if (state.gameState === 'intro') {
         updateIntro(dt);
@@ -479,6 +485,14 @@ function render() {
 
     drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
     drawHud();
+
+    // Checkpoint indicators
+    drawCheckpoints();
+
+    // Pause overlay
+    if (state.paused) {
+        drawPauseOverlay();
+    }
 }
 
 // --- Debug weapon switching ---
@@ -584,6 +598,20 @@ window.addEventListener('keydown', (e) => {
         if (e.code === 'Digit4') switchWeaponForDebug(WEAPON_IDS.WAVE);
         if (e.code === 'Digit5') switchWeaponForDebug(WEAPON_IDS.BOUNCE);
         if (e.code === 'Digit6') switchWeaponForDebug(WEAPON_IDS.PLASMA);
+
+        // Pause: Escape or P key
+        if (e.code === 'Escape' || e.code === 'KeyP') {
+            togglePause();
+            return;
+        }
+    }
+
+    // Unpause: any key while paused
+    if (state.paused) {
+        if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Enter' || e.code === 'Space') {
+            togglePause();
+            return;
+        }
     }
 });
 
@@ -635,5 +663,116 @@ canvas.addEventListener('click', () => {
         return;
     }
 });
+
+// --- Pause System ---
+
+function togglePause() {
+    if (state.gameState !== 'playing' && !state.paused) return;
+
+    state.paused = !state.paused;
+
+    if (state.paused) {
+        saveGame(state);
+        state.pausePreviousState = state.gameState;
+    } else {
+        state.gameState = state.pausePreviousState ?? 'playing';
+        state.pausePreviousState = null;
+    }
+}
+
+function drawPauseOverlay() {
+    const { ctx } = state;
+
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.82)';
+    ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+
+    ctx.fillStyle = 'rgba(33, 230, 255, 0.03)';
+    for (let i = 0; i < CONFIG.height; i += 4) {
+        ctx.fillRect(0, i, CONFIG.width, 1);
+    }
+
+    ctx.shadowColor = '#21e6ff';
+    ctx.shadowBlur = 30;
+    ctx.fillStyle = '#21e6ff';
+    ctx.font = '900 52px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSED', CONFIG.width / 2, CONFIG.height / 2 - 30);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '700 16px monospace';
+    ctx.fillText('ESC / P to Resume', CONFIG.width / 2, CONFIG.height / 2 + 20);
+
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
+    ctx.font = '700 13px monospace';
+    ctx.fillText('Game Saved', CONFIG.width / 2, CONFIG.height / 2 + 50);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = '700 12px monospace';
+    ctx.fillText(
+        `Level ${state.currentLevelIndex + 1}: ${state.currentLevel?.name ?? '---'}`,
+        CONFIG.width / 2,
+        CONFIG.height / 2 + 80
+    );
+
+    ctx.textAlign = 'left';
+    ctx.restore();
+}
+
+// --- Checkpoint System ---
+
+function drawCheckpoints() {
+    const { currentLevel: level, camera, player } = state;
+    if (!level.checkpoints) return;
+
+    for (const cp of level.checkpoints) {
+        const x = cp.x - camera.x;
+        const y = cp.y - camera.y;
+
+        const isActive = state.checkpoint && state.checkpoint.x === cp.x && state.checkpoint.y === cp.y;
+
+        ctx.save();
+
+        if (isActive) {
+            const pulse = Math.sin(Date.now() / 300) * 0.3 + 0.7;
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 16 * pulse;
+            ctx.fillStyle = `rgba(34, 197, 94, ${0.3 * pulse})`;
+            ctx.fillRect(x, y, cp.width, cp.height);
+
+            ctx.fillStyle = '#22c55e';
+            ctx.font = '900 14px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('CP', x + cp.width / 2, y - 6);
+        } else if (!cp.activated) {
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+            ctx.fillRect(x, y, cp.width, cp.height);
+        }
+
+        ctx.restore();
+
+        if (!cp.activated && rectsOverlap(player, cp)) {
+            cp.activated = true;
+            state.checkpoint = { x: cp.x, y: cp.y - player.height - 4 };
+            state.checkpointGems = player.gems;
+            state.checkpointKeys = player.keys ?? 0;
+            saveGame(state);
+            showCenterMessage('CHECKPOINT', 0.9);
+            playSound('itemPickup');
+        }
+    }
+}
+
+function rectsOverlap(a, b) {
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
 
 requestAnimationFrame(loop);

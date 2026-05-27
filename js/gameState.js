@@ -31,4 +31,13 @@ export const state = {
     hudBottomImage: null,
     ctx: null,                // set during init
     pendingLevelComplete: null, // replaces setTimeout for level transitions
+
+    // Checkpoint system
+    checkpoint: null,         // { x, y } last checkpoint position
+    checkpointGems: 0,       // gems collected at checkpoint time
+    checkpointKeys: 0,       // keys at checkpoint time
+
+    // Pause state
+    paused: false,
+    pausePreviousState: null, // game state before pause
 };
