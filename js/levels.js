@@ -13,9 +13,8 @@ export const levels = [
 export function getLevel(index) {
     const level = levels[index] ?? levels[levels.length - 1];
 
-    if (typeof window !== 'undefined') {
-        window.currentLevel = level;
-    }
+    // REMOVED: window.currentLevel = level;
+    // Other modules now access the current level via state.currentLevel from gameState.js
 
     return level;
 }

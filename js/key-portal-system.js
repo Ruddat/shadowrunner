@@ -1,27 +1,18 @@
-import { Player } from './player.js';
+/**
+ * key-portal-system.js - Key pickups, portal overlay, key HUD
+ * REFACTORED: Removed Player.prototype.draw patch.
+ * Now exports separate updateKeyPortalSystem (GAME LOGIC) and
+ * drawKeyPortalSystem (RENDERING) functions.
+ * Imports rectsOverlap from collision.js instead of duplicating it.
+ */
 
-const originalDraw = Player.prototype.draw;
+import { rectsOverlap } from './collision.js';
 
-Player.prototype.draw = function drawWithKeysAndPortal(ctx, camera) {
-    originalDraw.call(this, ctx, camera);
+// --- GAME LOGIC (called from update loop) ---
 
-    const level = window.currentLevel;
-    if (!level) return;
-
-    updateKeyPickups(this, level);
-    updateExitUnlock(this, level);
-    drawLevelKeys(ctx, camera, level);
-    drawPortalOverlay(ctx, camera, level);
-    drawKeyHud(ctx, this, level);
-};
-
-function rectsOverlap(a, b) {
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
+export function updateKeyPortalSystem(player, level) {
+    updateKeyPickups(player, level);
+    updateExitUnlock(player, level);
 }
 
 function updateKeyPickups(player, level) {
@@ -62,6 +53,14 @@ function updateExitUnlock(player, level) {
         level.exit.justOpened = true;
         level.exit.openedAt = performance.now();
     }
+}
+
+// --- RENDERING (called from render) ---
+
+export function drawKeyPortalSystem(ctx, player, camera, level) {
+    drawLevelKeys(ctx, camera, level);
+    drawPortalOverlay(ctx, camera, level);
+    drawKeyHud(ctx, player, level);
 }
 
 function drawLevelKeys(ctx, camera, level) {

@@ -41,9 +41,8 @@ export class Player {
         this.score = 0;
         this.deathsThisLevel = 0;
 
-        if (typeof window !== 'undefined') {
-            window.shadowRunnerPlayer = this;
-        }
+        // REMOVED: window.shadowRunnerPlayer = this;
+        // Other modules now access the player via state.player from gameState.js
     }
 
     update(dt, level) {

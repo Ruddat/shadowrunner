@@ -1,17 +1,10 @@
-import { Player } from './player.js';
+/**
+ * shadow-player-effects.js - Shadow energy bar drawing
+ * REFACTORED: Removed Player.prototype.draw patch.
+ * Now exports drawShadowEnergyBar as a standalone function.
+ */
 
-const originalDraw = Player.prototype.draw;
-
-Player.prototype.draw = function drawWithShadowEffects(ctx, camera) {
-    originalDraw.call(this, ctx, camera);
-
-    const screenX = this.x - camera.x;
-    const screenY = this.y - camera.y;
-
-    drawShadowEnergyBar(ctx, this, screenX, screenY);
-};
-
-function drawShadowEnergyBar(ctx, player, screenX, screenY) {
+export function drawShadowEnergyBar(ctx, player, screenX, screenY) {
     if (player.shadowEnergy >= 100 && !player.shadowShift) return;
 
     const width = 54;

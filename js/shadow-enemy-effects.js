@@ -1,15 +1,16 @@
-import { Player } from './player.js';
+/**
+ * shadow-enemy-effects.js - Shadow enemy aura drawing
+ * REFACTORED: Removed Player.prototype.draw patch and window.currentLevel usage.
+ * Now exports drawShadowEnemyAuras as a standalone function.
+ * Accepts level as a parameter instead of using window.currentLevel.
+ */
 
-const originalDraw = Player.prototype.draw;
-
-Player.prototype.draw = function drawWithShadowEnemyAura(ctx, camera) {
-    originalDraw.call(this, ctx, camera);
-
-    if (!window.currentLevel?.enemies) {
+export function drawShadowEnemyAuras(ctx, player, camera, level) {
+    if (!level?.enemies) {
         return;
     }
 
-    for (const enemy of window.currentLevel.enemies) {
+    for (const enemy of level.enemies) {
         if (!enemy.shadowOnly) continue;
 
         const screenX = enemy.x - camera.x;
@@ -17,7 +18,7 @@ Player.prototype.draw = function drawWithShadowEnemyAura(ctx, camera) {
 
         ctx.save();
 
-        const visible = this.shadowShift;
+        const visible = player.shadowShift;
 
         ctx.globalAlpha = visible ? 1 : 0.22;
         ctx.shadowColor = '#b388ff';
@@ -37,4 +38,4 @@ Player.prototype.draw = function drawWithShadowEnemyAura(ctx, camera) {
 
         ctx.restore();
     }
-};
+}
