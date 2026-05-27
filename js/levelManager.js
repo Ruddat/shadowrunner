@@ -21,6 +21,7 @@ import {
 } from './weapons.js';
 import { playSound, stopMusic, playMusic } from './audioManager.js';
 import { damageBossInRadius } from './bossSystem.js';
+import { isShieldBlocking, damageShield } from './enemySystem.js';
 import { initLevelFx } from './levelFx.js';
 import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
 
@@ -408,6 +409,20 @@ export function updateProjectiles(dt) {
             if (enemy.shadowOnly && !player.shadowShift) continue;
 
             if (rectsOverlap(projectile, enemy) && projectile.canHit(enemy)) {
+                // Shield check: block projectile from front
+                if (isShieldBlocking(enemy, projectile)) {
+                    projectile.markHit(enemy); // consume the projectile
+                    damageShield(enemy);
+                    spawnParticles(
+                        enemy.x + (enemy.facingPlayer ? enemy.width + 5 : -5),
+                        enemy.y + enemy.height / 2,
+                        10,
+                        '#60a5fa'
+                    );
+                    camera.shake(3, 0.08);
+                    continue;
+                }
+
                 if (projectile.weaponId === WEAPON_IDS.PLASMA) {
                     explodePlasmaProjectile(projectile);
                     continue;

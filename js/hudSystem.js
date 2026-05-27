@@ -394,14 +394,28 @@ function drawMiniMap() {
     ctx.lineWidth = 1;
     ctx.strokeRect(camX, camY, camW, camH);
 
-    // Enemies (red dots)
+    // Enemies (color-coded by type)
     if (level.enemies) {
-        ctx.fillStyle = '#ff003c';
         for (const enemy of level.enemies) {
             if (enemy.active === false) continue;
             const dotX = mapX + (enemy.x + enemy.width / 2) * scaleX;
             const dotY = mapY + (enemy.y + enemy.height / 2) * scaleY;
-            ctx.fillRect(dotX - 1.5, dotY - 1.5, 3, 3);
+
+            const type = enemy.type ?? 'walker';
+            switch (type) {
+                case 'drone':  ctx.fillStyle = '#ff6b00'; break;   // orange
+                case 'shield': ctx.fillStyle = '#3b82f6'; break;   // blue
+                case 'mech':   ctx.fillStyle = '#ef4444'; break;   // red (bigger)
+                case 'turret': ctx.fillStyle = '#a855f7'; break;   // purple
+                default:       ctx.fillStyle = '#ff003c'; break;   // default red
+            }
+
+            if (type === 'mech') {
+                // Mech = slightly larger dot
+                ctx.fillRect(dotX - 2.5, dotY - 2.5, 5, 5);
+            } else {
+                ctx.fillRect(dotX - 1.5, dotY - 1.5, 3, 3);
+            }
         }
     }
 

@@ -171,6 +171,27 @@ export const level2 = {
             active: true,
         },
 
+        // Drohne über der ersten Plattform
+        {
+            type: 'drone',
+            canShoot: true,
+            shootDelay: 2.0,
+            shootRangeX: 350,
+            shootRangeY: 200,
+            projectileSpeed: 260,
+            projectileColor: '#ff6b00',
+            x: 780,
+            y: 180,
+            width: 38,
+            height: 38,
+            minX: 610,
+            maxX: 940,
+            speed: 60,
+            direction: 1,
+            health: 2,
+            active: true,
+        },
+
         // Zweiter Gegner: auf hoher Plattform
         {
             x: 1010,
@@ -185,17 +206,25 @@ export const level2 = {
             active: true,
         },
 
-        // Gegner auf breiter Plattform
+        // Schild-Gegner: blockt von vorne
         {
-            x: 1330,
+            type: 'shield',
+            canShoot: true,
+            shootDelay: 2.0,
+            shootRangeX: 450,
+            shootRangeY: 160,
+            projectileSpeed: 300,
+            projectileColor: '#3b82f6',
+            x: 1350,
             y: 332,
             width: 46,
             height: 50,
             minX: 1240,
             maxX: 1490,
-            speed: 145,
+            speed: 80,
             direction: 1,
-            health: 2,
+            health: 3,
+            shieldHP: 3,
             active: true,
         },
 
@@ -226,30 +255,20 @@ export const level2 = {
             active: true,
         },
 
-        // Mittlerer Kampfbereich
+        // Mech im Kampfbereich!
         {
-            x: 2340,
-            y: 302,
-            width: 46,
-            height: 50,
-            minX: 2240,
-            maxX: 2490,
-            speed: 175,
-            direction: -1,
-            health: 2,
-            active: true,
-        },
-
-        {
+            type: 'mech',
             x: 2760,
-            y: 352,
-            width: 46,
-            height: 50,
+            y: 342,
+            width: 56,
+            height: 64,
             minX: 2640,
             maxX: 3090,
-            speed: 155,
-            direction: 1,
-            health: 3,
+            speed: 60,
+            direction: -1,
+            health: 6,
+            chargeSpeed: 650,
+            chargeRange: 380,
             active: true,
         },
 
@@ -263,6 +282,27 @@ export const level2 = {
             speed: 185,
             direction: -1,
             health: 3,
+            active: true,
+        },
+
+        // Drohne über dem Kampfbereich
+        {
+            type: 'drone',
+            canShoot: true,
+            shootDelay: 1.8,
+            shootRangeX: 400,
+            shootRangeY: 250,
+            projectileSpeed: 300,
+            projectileColor: '#ff6b00',
+            x: 2900,
+            y: 160,
+            width: 38,
+            height: 38,
+            minX: 2620,
+            maxX: 3200,
+            speed: 80,
+            direction: -1,
+            health: 2,
             active: true,
         },
 
@@ -290,6 +330,27 @@ export const level2 = {
             speed: 190,
             direction: -1,
             health: 3,
+            active: true,
+        },
+
+        // Turret vor dem Exit
+        {
+            type: 'turret',
+            canShoot: true,
+            shootDelay: 0.9,
+            shootRangeX: 500,
+            shootRangeY: 400,
+            projectileSpeed: 360,
+            projectileColor: '#a855f7',
+            x: 3920,
+            y: 352,
+            width: 42,
+            height: 42,
+            minX: 3920,
+            maxX: 3962,
+            speed: 0,
+            direction: 1,
+            health: 5,
             active: true,
         },
 
