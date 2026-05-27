@@ -76,9 +76,8 @@ export function loadNextLevel() {
     state.currentLevel = getLevel(state.currentLevelIndex);
     state.levelBackground.src = state.currentLevel.background;
 
-    if (state.currentLevel.music) {
-        playMusic(state.currentLevel.music);
-    }
+    // Play level music (fallback to 'level1' if no music property defined)
+    playMusic(state.currentLevel.music ?? 'level1');
 
     player.x = state.currentLevel.spawn.x;
     player.y = state.currentLevel.spawn.y;

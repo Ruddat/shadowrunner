@@ -104,6 +104,7 @@ state.levelStats = createLevelStats(state.currentLevel);
 // Audio registration
 registerMusic('title', 'assets/audio/title-theme.mp3');
 registerMusic('level1', 'assets/audio/level1-theme.mp3');
+registerMusic('level2', 'assets/audio/level2-theme.mp3');
 registerMusic('level4', 'assets/audio/level4-boss-theme.mp3');
 registerMusic('levelComplete', 'assets/audio/level-complete.mp3', false);
 registerMusic('gameOver', 'assets/audio/game-over.mp3', false);
@@ -553,14 +554,11 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (state.gameState === 'levelComplete' && e.code === 'Enter') {
-        stopMusic();
-        loadNextLevel();
-        // BUG FIX: loadNextLevel may transition to credits if all levels done
+        loadNextLevel(); // handles stopping old music + starting new
         if (state.gameState === 'credits') {
             playMusic('credits');
             return;
         }
-        playMusic(state.currentLevel.music ?? 'level1');
         state.gameState = 'playing';
         return;
     }
@@ -623,14 +621,11 @@ canvas.addEventListener('click', () => {
     }
 
     if (state.gameState === 'levelComplete') {
-        stopMusic();
-        loadNextLevel();
-        // BUG FIX: loadNextLevel may transition to credits if all levels done
+        loadNextLevel(); // handles stopping old music + starting new
         if (state.gameState === 'credits') {
             playMusic('credits');
             return;
         }
-        playMusic(state.currentLevel.music ?? 'level1');
         state.gameState = 'playing';
         return;
     }
