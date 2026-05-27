@@ -80,6 +80,17 @@ import { initNeonSync, updateNeonSync, neonSync } from './neonSync.js';
 // Save / Load / Pause / Checkpoint
 import { saveGame, loadGame, hasSaveGame, deleteSave } from './saveSystem.js';
 
+// Hacking Minigame
+import {
+    startHacking,
+    isHacking,
+    updateHacking,
+    drawHacking,
+    updateHackTerminals,
+    drawHackTerminals,
+    abortHacking,
+} from './hackingMinigame.js';
+
 // --- Init ---
 
 const hudBottomImage = new Image();
@@ -157,6 +168,12 @@ function update(dt) {
         return;
     }
 
+    // Hacking minigame: freeze normal gameplay, run hacking update
+    if (isHacking()) {
+        updateHacking(dt);
+        return;
+    }
+
     player.update(dt, state.currentLevel);
 
     if (player.isGameOver) {
@@ -191,6 +208,7 @@ function update(dt) {
     updateBonusBlockSpawns();
     updateFloatingItems(dt);
     updatePowerupPickup();
+    updateHackTerminals();
     updatePendingLevelComplete(dt);
     updateParticles(dt);
 
@@ -813,9 +831,17 @@ function render() {
     // Checkpoint indicators
     drawCheckpoints();
 
+    // Hack terminals
+    drawHackTerminals(ctx, camera);
+
     // Pause overlay
     if (state.paused) {
         drawPauseOverlay();
+    }
+
+    // Hacking minigame overlay (renders on top of everything)
+    if (isHacking()) {
+        drawHacking(ctx);
     }
 }
 
@@ -914,6 +940,12 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (state.gameState === 'playing') {
+        // Hacking minigame: Escape aborts
+        if (isHacking() && e.code === 'Escape') {
+            abortHacking();
+            return;
+        }
+
         if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
         if (e.code === 'Digit2') switchWeaponForDebug(WEAPON_IDS.SPREAD);
         if (e.code === 'Digit3') switchWeaponForDebug(WEAPON_IDS.LASER);

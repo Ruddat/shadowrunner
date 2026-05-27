@@ -116,6 +116,20 @@ export const level1 = {
         { x: 2500, y: 360, width: 60, height: 80, activated: false },
     ],
 
+    hackTerminals: [
+        {
+            x: 730,
+            y: 310,
+            width: 36,
+            height: 52,
+            difficulty: 'easy',
+            reward: 'deactivate_enemies',
+            targetId: 'deactivate',
+            hacked: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         {
             canShoot: true,

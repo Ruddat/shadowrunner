@@ -93,6 +93,26 @@ export const level3 = {
         { x: 2620, y: 340, width: 60, height: 80, activated: false },
     ],
 
+    hackTerminals: [
+        {
+            x: 1580,
+            y: 200,
+            width: 36,
+            height: 52,
+            difficulty: 'hard',
+            reward: 'secret_area',
+            targetId: 'secret',
+            secretPlatforms: [
+                { x: 1700, y: 160, width: 200, height: 28 },
+            ],
+            secretWeapon: 'plasma',
+            secretX: 1750,
+            secretY: 160,
+            hacked: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         {
             x: 690,

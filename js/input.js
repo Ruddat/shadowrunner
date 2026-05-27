@@ -5,6 +5,7 @@ export const keys = {
     shoot: false,
     shadow: false,
     dash: false,
+    interact: false,
 };
 
 window.addEventListener('keydown', (e) => {
@@ -14,6 +15,7 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keys.shoot = true;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keys.shadow = true;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keys.dash = true;
+    if (e.code === 'KeyE' || e.code === 'KeyF') keys.interact = true;
 });
 
 window.addEventListener('keyup', (e) => {
@@ -23,4 +25,5 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keys.shoot = false;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keys.shadow = false;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keys.dash = false;
+    if (e.code === 'KeyE' || e.code === 'KeyF') keys.interact = false;
 });

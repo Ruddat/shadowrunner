@@ -162,6 +162,35 @@ export const level2 = {
         { x: 3600, y: 250, width: 60, height: 80, activated: false },
     ],
 
+    hackTerminals: [
+        {
+            x: 1910,
+            y: 230,
+            width: 36,
+            height: 52,
+            difficulty: 'medium',
+            reward: 'open_door',
+            targetId: 'door',
+            doorX: 2230,
+            doorY: 320,
+            doorW: 200,
+            doorH: 32,
+            hacked: false,
+            nearPlayer: false,
+        },
+        {
+            x: 3220,
+            y: 290,
+            width: 36,
+            height: 52,
+            difficulty: 'medium',
+            reward: 'deactivate_enemies',
+            targetId: 'deactivate',
+            hacked: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         // Erster Gegner: leicht
         {

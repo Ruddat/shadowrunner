@@ -40,4 +40,7 @@ export const state = {
     // Pause state
     paused: false,
     pausePreviousState: null, // game state before pause
+
+    // Hacking minigame state
+    hackingState: null,
 };
