@@ -17,8 +17,18 @@
 
 let audioContext = null;
 let analyser = null;
-let sourceNode = null;
-let connectedElement = null;
+
+/**
+ * Map of AudioElement → MediaElementAudioSourceNode.
+ * CRITICAL: createMediaElementSource() can only be called ONCE per element.
+ * After that, the element is permanently "captured" by Web Audio API and
+ * can only play through the Web Audio graph (not directly to speakers).
+ * So we must REUSE existing source nodes when switching back to a track.
+ */
+const sourceNodes = new Map();
+
+/** The audio element currently connected to the analyser */
+let activeElement = null;
 
 const FREQUENCY_DATA = new Uint8Array(128); // half of fftSize
 
@@ -96,6 +106,15 @@ export function initNeonSync() {
  * Connect an <audio> HTML element to the analyser.
  * Called by audioManager when a new music track starts playing.
  *
+ * IMPORTANT: createMediaElementSource() can only be called ONCE per element.
+ * After that, the element is permanently "captured" by Web Audio API and
+ * can only output through the Web Audio graph. We cache all source nodes
+ * in a Map and reuse them when switching between tracks.
+ *
+ * Audio routing:
+ *   sourceNode → analyser → destination
+ *   (only one source connected to analyser at a time)
+ *
  * @param {HTMLAudioElement} audioElement
  */
 export function connectAudioElement(audioElement) {
@@ -105,25 +124,39 @@ export function connectAudioElement(audioElement) {
         if (!audioContext) return;
     }
 
-    // Disconnect previous source if different element
-    if (sourceNode && connectedElement !== audioElement) {
-        try { sourceNode.disconnect(); } catch (_) { /* already disconnected */ }
-        sourceNode = null;
+    // Same element already active → nothing to do
+    if (activeElement === audioElement) return;
+
+    // Disconnect whatever is currently connected to the analyser
+    if (activeElement) {
+        const oldSource = sourceNodes.get(activeElement);
+        if (oldSource) {
+            try { oldSource.disconnect(); } catch (_) { /* already disconnected */ }
+        }
     }
 
-    // Don't reconnect same element
-    if (connectedElement === audioElement && sourceNode) return;
+    // Get or create the source node for this element
+    let source = sourceNodes.get(audioElement);
 
+    if (!source) {
+        // First time seeing this element → create source (can only be done ONCE)
+        try {
+            source = audioContext.createMediaElementSource(audioElement);
+            sourceNodes.set(audioElement, source);
+            console.log('[neonSync] Created source node for new audio element');
+        } catch (err) {
+            console.warn('[neonSync] Could not create source node:', err.message);
+            return;
+        }
+    }
+
+    // Connect: source → analyser → destination
     try {
-        sourceNode = audioContext.createMediaElementSource(audioElement);
-        sourceNode.connect(analyser);
-        connectedElement = audioElement;
-
-        console.log('[neonSync] Audio element connected');
+        source.connect(analyser);
+        activeElement = audioElement;
+        console.log('[neonSync] Audio element connected to analyser');
     } catch (err) {
-        // createMediaElementSource can only be called once per element
-        // If already connected, the element is already routed through Web Audio
-        console.warn('[neonSync] Could not connect audio element:', err.message);
+        console.warn('[neonSync] Could not connect source to analyser:', err.message);
     }
 }
 
@@ -151,7 +184,13 @@ export function updateNeonSync(dt) {
         return;
     }
 
-    // Check if context is running
+    // Auto-resume if suspended (can happen after tab switch or browser throttling)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+        neonSync.isActive = false;
+        return;
+    }
+
     if (audioContext.state !== 'running') {
         neonSync.isActive = false;
         return;

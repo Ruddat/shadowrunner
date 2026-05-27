@@ -12,7 +12,11 @@ let sfxVolume = 0.85;
 
 export function registerMusic(name, src, loop = true) {
     const audio = new Audio();
-    audio.crossOrigin = 'anonymous'; // required for Web Audio API AnalyserNode
+    // Only set crossOrigin for cross-origin URLs (CDN etc.)
+    // Same-origin files don't need it and it can break file:// and some servers
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+        try { new URL(src); audio.crossOrigin = 'anonymous'; } catch (_) { /* relative URL, skip */ }
+    }
     audio.src = src;
     audio.loop = loop;
     audio.preload = 'auto';
