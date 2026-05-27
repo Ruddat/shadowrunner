@@ -246,50 +246,374 @@ function drawPlatforms() {
 
     // Neon-Sync: platforms pulse with bass
     const bassPulse = neonSync.isActive ? neonSync.bassIntensity : 0;
-    const glowBoost = 18 + bassPulse * 20; // 18 → 38 glow
-    const topBarHeight = 5 + bassPulse * 2;  // 5 → 7 px
-    const edgeBarHeight = 4 + bassPulse * 1; // 4 → 5 px
+    const time = performance.now() * 0.001; // time-based animation
+
+    // Ambient scan-line sweep (moves across all platforms)
+    const scanX = ((time * 60) % (CONFIG.width + 200)) - 100;
 
     for (const platform of currentLevel.platforms) {
         const x = platform.x - camera.x;
         const y = platform.y - camera.y;
+        const w = platform.width;
+        const h = platform.height;
 
         // Shadow platforms have a different visual style
-        const isShadowPlatform = platform.height === 24;
+        const isShadowPlatform = h === 24;
 
         ctx.save();
 
         if (isShadowPlatform) {
-            // Shadow platforms: purple/violet glow, semi-transparent when not in shadow mode
-            const alpha = isShadow ? 1 : 0.15;
-            ctx.globalAlpha = alpha;
-            ctx.shadowColor = '#b388ff';
-            ctx.shadowBlur = isShadow ? (22 + bassPulse * 14) : 4;
-
-            ctx.fillStyle = '#1a0a30';
-            ctx.fillRect(x, y, platform.width, platform.height);
-
-            ctx.fillStyle = '#b388ff';
-            ctx.fillRect(x, y, platform.width, 4);
-
-            ctx.fillStyle = '#7c3cff';
-            ctx.fillRect(x, y + platform.height - 3, platform.width, 3);
+            drawShadowPlatform(x, y, w, h, isShadow, bassPulse, time);
         } else {
-            ctx.shadowColor = '#ff2bd6';
-            ctx.shadowBlur = glowBoost;
-
-            ctx.fillStyle = '#16162e';
-            ctx.fillRect(x, y, platform.width, platform.height);
-
-            ctx.fillStyle = '#ff2bd6';
-            ctx.fillRect(x, y, platform.width, topBarHeight);
-
-            ctx.fillStyle = '#21e6ff';
-            ctx.fillRect(x, y + platform.height - edgeBarHeight, platform.width, edgeBarHeight);
+            drawCyberPlatform(x, y, w, h, bassPulse, time, scanX);
         }
 
         ctx.restore();
     }
+}
+
+/**
+ * Draws a normal cyber-platform with struts, glow, grid pattern,
+ * circuit lines, rivets, corner accents and animated neon pulse.
+ */
+function drawCyberPlatform(x, y, w, h, bassPulse, time, scanX) {
+    const glowBoost = 18 + bassPulse * 20;
+    const topBarH = 4 + bassPulse * 2;
+    const botBarH = 3 + bassPulse * 1;
+    const bodyY = y + topBarH;
+    const bodyH = h - topBarH - botBarH;
+
+    // --- 1) OUTER GLOW LAYER (soft wide glow behind platform) ---
+    ctx.save();
+    ctx.shadowColor = '#ff2bd6';
+    ctx.shadowBlur = glowBoost + 12;
+    ctx.fillStyle = 'rgba(255,43,214,0.03)';
+    ctx.fillRect(x - 4, y - 4, w + 8, h + 8);
+    ctx.restore();
+
+    // --- 2) PLATFORM BODY (dark metallic fill) ---
+    ctx.fillStyle = '#0e0e24';
+    ctx.fillRect(x, y, w, h);
+
+    // --- 3) GRID / HATCH PATTERN on body ---
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = '#ff2bd6';
+    ctx.lineWidth = 0.5;
+    const gridSize = 12;
+    // Vertical grid lines
+    for (let gx = x + gridSize; gx < x + w; gx += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(gx, bodyY);
+        ctx.lineTo(gx, bodyY + bodyH);
+        ctx.stroke();
+    }
+    // Horizontal grid lines
+    for (let gy = bodyY + gridSize; gy < bodyY + bodyH; gy += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, gy);
+        ctx.lineTo(x + w, gy);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // --- 4) CIRCUIT LINES (horizontal accent lines running through body) ---
+    ctx.save();
+    ctx.globalAlpha = 0.25 + bassPulse * 0.15;
+    ctx.strokeStyle = '#21e6ff';
+    ctx.lineWidth = 1;
+    // Upper circuit line
+    const circuitY1 = bodyY + Math.floor(bodyH * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(x + 6, circuitY1);
+    ctx.lineTo(x + w - 6, circuitY1);
+    ctx.stroke();
+    // Lower circuit line (dashed)
+    const circuitY2 = bodyY + Math.floor(bodyH * 0.7);
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(x + 10, circuitY2);
+    ctx.lineTo(x + w - 10, circuitY2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Small circuit nodes (dots at intersections)
+    ctx.fillStyle = '#21e6ff';
+    for (let nx = x + 20; nx < x + w - 10; nx += 40) {
+        ctx.fillRect(nx - 1.5, circuitY1 - 1.5, 3, 3);
+    }
+    ctx.restore();
+
+    // --- 5) DIAGONAL STRUTS / BRACES underneath ---
+    if (h >= 28) {
+        ctx.save();
+        ctx.globalAlpha = 0.3 + bassPulse * 0.1;
+        ctx.strokeStyle = '#ff2bd6';
+        ctx.lineWidth = 1.5;
+        const strutSpacing = 50;
+        const strutCount = Math.floor(w / strutSpacing);
+        for (let i = 1; i <= strutCount; i++) {
+            const sx = x + i * strutSpacing;
+            if (sx >= x + w - 5) break;
+            // Diagonal from top-edge down to bottom
+            ctx.beginPath();
+            ctx.moveTo(sx, y + topBarH);
+            ctx.lineTo(sx - 12, y + h - botBarH);
+            ctx.stroke();
+            // Cross-brace
+            ctx.beginPath();
+            ctx.moveTo(sx, y + topBarH);
+            ctx.lineTo(sx + 12, y + h - botBarH);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // --- 6) TOP NEON BAR (magenta glow strip) ---
+    ctx.save();
+    ctx.shadowColor = '#ff2bd6';
+    ctx.shadowBlur = glowBoost;
+    ctx.fillStyle = '#ff2bd6';
+    ctx.fillRect(x, y, w, topBarH);
+    // Inner bright core of top bar
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,200,240,0.5)';
+    ctx.fillRect(x, y, w, Math.max(1, topBarH * 0.4));
+    ctx.restore();
+
+    // --- 7) BOTTOM NEON EDGE (cyan glow strip) ---
+    ctx.save();
+    ctx.shadowColor = '#21e6ff';
+    ctx.shadowBlur = glowBoost * 0.7;
+    ctx.fillStyle = '#21e6ff';
+    ctx.fillRect(x, y + h - botBarH, w, botBarH);
+    // Inner bright core
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(200,240,255,0.4)';
+    ctx.fillRect(x, y + h - botBarH, w, Math.max(1, botBarH * 0.4));
+    ctx.restore();
+
+    // --- 8) RIVETS (small dots along top edge) ---
+    ctx.save();
+    ctx.fillStyle = '#ff7aed';
+    ctx.shadowColor = '#ff2bd6';
+    ctx.shadowBlur = 4;
+    const rivetSpacing = 24;
+    for (let rx = x + rivetSpacing; rx < x + w - 6; rx += rivetSpacing) {
+        ctx.beginPath();
+        ctx.arc(rx, y + topBarH + 3, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // --- 9) CORNER ACCENTS (small L-brackets at corners) ---
+    ctx.save();
+    ctx.strokeStyle = '#ff2bd6';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#ff2bd6';
+    ctx.shadowBlur = 6;
+    const ca = 8; // accent length
+    // Top-left
+    ctx.beginPath();
+    ctx.moveTo(x, y + ca); ctx.lineTo(x, y); ctx.lineTo(x + ca, y);
+    ctx.stroke();
+    // Top-right
+    ctx.beginPath();
+    ctx.moveTo(x + w - ca, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + ca);
+    ctx.stroke();
+    // Bottom-left
+    ctx.beginPath();
+    ctx.moveTo(x, y + h - ca); ctx.lineTo(x, y + h); ctx.lineTo(x + ca, y + h);
+    ctx.stroke();
+    // Bottom-right
+    ctx.beginPath();
+    ctx.moveTo(x + w - ca, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - ca);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- 10) ANIMATED SCAN-LINE SWEEP (moving highlight) ---
+    const localScanX = scanX - x;
+    if (localScanX > -30 && localScanX < w + 30) {
+        ctx.save();
+        const grad = ctx.createLinearGradient(x + localScanX - 25, 0, x + localScanX + 25, 0);
+        grad.addColorStop(0, 'rgba(255,43,214,0)');
+        grad.addColorStop(0.5, 'rgba(255,43,214,0.18)');
+        grad.addColorStop(1, 'rgba(255,43,214,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // --- 11) PULSING ENERGY DOTS along circuit line (animated) ---
+    ctx.save();
+    ctx.shadowColor = '#21e6ff';
+    ctx.shadowBlur = 6 + bassPulse * 4;
+    ctx.fillStyle = '#21e6ff';
+    const dotSpeed = time * 80;
+    const dotSpacing = 60;
+    for (let dx = (dotSpeed % dotSpacing); dx < w; dx += dotSpacing) {
+        const dotX = x + dx;
+        if (dotX > x + 6 && dotX < x + w - 6) {
+            ctx.beginPath();
+            ctx.arc(dotX, bodyY + Math.floor(bodyH * 0.3), 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.restore();
+}
+
+/**
+ * Draws a shadow platform with purple/violet cyberpunk style.
+ * Same detail level but with shadow-theme colors.
+ */
+function drawShadowPlatform(x, y, w, h, isShadow, bassPulse, time) {
+    const alpha = isShadow ? 1 : 0.15;
+    const glowBoost = isShadow ? (22 + bassPulse * 14) : 4;
+    const topBarH = 3 + bassPulse * 1;
+    const botBarH = 2 + bassPulse * 1;
+    const bodyY = y + topBarH;
+    const bodyH = h - topBarH - botBarH;
+
+    ctx.globalAlpha = alpha;
+
+    // --- Outer glow ---
+    ctx.save();
+    ctx.shadowColor = '#b388ff';
+    ctx.shadowBlur = glowBoost + 8;
+    ctx.fillStyle = 'rgba(179,136,255,0.03)';
+    ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+    ctx.restore();
+
+    // --- Body ---
+    ctx.fillStyle = '#1a0a30';
+    ctx.fillRect(x, y, w, h);
+
+    // --- Grid pattern ---
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.1;
+    ctx.strokeStyle = '#b388ff';
+    ctx.lineWidth = 0.5;
+    const gridSize = 10;
+    for (let gx = x + gridSize; gx < x + w; gx += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(gx, bodyY);
+        ctx.lineTo(gx, bodyY + bodyH);
+        ctx.stroke();
+    }
+    for (let gy = bodyY + gridSize; gy < bodyY + bodyH; gy += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, gy);
+        ctx.lineTo(x + w, gy);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // --- Circuit lines ---
+    ctx.save();
+    ctx.globalAlpha = alpha * (0.2 + bassPulse * 0.12);
+    ctx.strokeStyle = '#7c3cff';
+    ctx.lineWidth = 0.8;
+    const circuitY = bodyY + Math.floor(bodyH * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(x + 4, circuitY);
+    ctx.lineTo(x + w - 4, circuitY);
+    ctx.stroke();
+    // Circuit nodes
+    ctx.fillStyle = '#7c3cff';
+    for (let nx = x + 15; nx < x + w - 8; nx += 35) {
+        ctx.fillRect(nx - 1, circuitY - 1, 2, 2);
+    }
+    ctx.restore();
+
+    // --- Diagonal struts ---
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.25;
+    ctx.strokeStyle = '#b388ff';
+    ctx.lineWidth = 1;
+    const strutSpacing = 45;
+    const strutCount = Math.floor(w / strutSpacing);
+    for (let i = 1; i <= strutCount; i++) {
+        const sx = x + i * strutSpacing;
+        if (sx >= x + w - 4) break;
+        ctx.beginPath();
+        ctx.moveTo(sx, y + topBarH);
+        ctx.lineTo(sx - 10, y + h - botBarH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sx, y + topBarH);
+        ctx.lineTo(sx + 10, y + h - botBarH);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // --- Top neon bar ---
+    ctx.save();
+    ctx.shadowColor = '#b388ff';
+    ctx.shadowBlur = glowBoost;
+    ctx.fillStyle = '#b388ff';
+    ctx.fillRect(x, y, w, topBarH);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(220,200,255,0.4)';
+    ctx.fillRect(x, y, w, Math.max(1, topBarH * 0.35));
+    ctx.restore();
+
+    // --- Bottom neon bar ---
+    ctx.save();
+    ctx.shadowColor = '#7c3cff';
+    ctx.shadowBlur = glowBoost * 0.6;
+    ctx.fillStyle = '#7c3cff';
+    ctx.fillRect(x, y + h - botBarH, w, botBarH);
+    ctx.restore();
+
+    // --- Rivets ---
+    ctx.save();
+    ctx.fillStyle = '#c9a0ff';
+    ctx.shadowColor = '#b388ff';
+    ctx.shadowBlur = 3;
+    for (let rx = x + 20; rx < x + w - 6; rx += 22) {
+        ctx.beginPath();
+        ctx.arc(rx, y + topBarH + 2, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // --- Corner accents ---
+    ctx.save();
+    ctx.strokeStyle = '#b388ff';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#b388ff';
+    ctx.shadowBlur = 4;
+    const ca = 6;
+    ctx.beginPath();
+    ctx.moveTo(x, y + ca); ctx.lineTo(x, y); ctx.lineTo(x + ca, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w - ca, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + ca);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y + h - ca); ctx.lineTo(x, y + h); ctx.lineTo(x + ca, y + h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w - ca, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - ca);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- Pulsing energy dots ---
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = '#7c3cff';
+    ctx.shadowBlur = 5 + bassPulse * 3;
+    ctx.fillStyle = '#7c3cff';
+    const dotSpeed = time * 60;
+    const dotSpacing = 55;
+    for (let dx = (dotSpeed % dotSpacing); dx < w; dx += dotSpacing) {
+        const dotX = x + dx;
+        if (dotX > x + 4 && dotX < x + w - 4) {
+            ctx.beginPath();
+            ctx.arc(dotX, circuitY, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.restore();
 }
 
 function drawGems() {
