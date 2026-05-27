@@ -74,6 +74,9 @@ import { drawShadowEnergyBar } from './shadow-player-effects.js';
 import { drawShadowEnemyAuras } from './shadow-enemy-effects.js';
 import { updateKeyPortalSystem, drawKeyPortalSystem } from './key-portal-system.js';
 
+// Neon-Sync: Music-driven visual effects
+import { initNeonSync, updateNeonSync, neonSync } from './neonSync.js';
+
 // --- Init ---
 
 const hudBottomImage = new Image();
@@ -120,6 +123,7 @@ initIntro();
 initTitleScreen();
 initCreditsScreen();
 initLevelFx();
+initNeonSync(); // Neon-Sync: AudioContext + AnalyserNode
 
 // --- Update ---
 
@@ -159,6 +163,14 @@ function update(dt) {
 
     camera.follow(player);
     camera.update(dt);
+
+    // Neon-Sync: update music analysis every frame
+    updateNeonSync(dt);
+    // Beat → micro camera shake
+    if (neonSync.beat) {
+        camera.shake(3 + neonSync.bassIntensity * 4, 0.1);
+    }
+
     updateLevelFx(dt, state.currentLevel);
     updateGems();
     updateExit();
@@ -225,6 +237,12 @@ function drawPlatforms() {
     const { currentLevel, camera, player } = state;
     const isShadow = player?.shadowShift;
 
+    // Neon-Sync: platforms pulse with bass
+    const bassPulse = neonSync.isActive ? neonSync.bassIntensity : 0;
+    const glowBoost = 18 + bassPulse * 20; // 18 → 38 glow
+    const topBarHeight = 5 + bassPulse * 2;  // 5 → 7 px
+    const edgeBarHeight = 4 + bassPulse * 1; // 4 → 5 px
+
     for (const platform of currentLevel.platforms) {
         const x = platform.x - camera.x;
         const y = platform.y - camera.y;
@@ -239,7 +257,7 @@ function drawPlatforms() {
             const alpha = isShadow ? 1 : 0.15;
             ctx.globalAlpha = alpha;
             ctx.shadowColor = '#b388ff';
-            ctx.shadowBlur = isShadow ? 22 : 4;
+            ctx.shadowBlur = isShadow ? (22 + bassPulse * 14) : 4;
 
             ctx.fillStyle = '#1a0a30';
             ctx.fillRect(x, y, platform.width, platform.height);
@@ -251,16 +269,16 @@ function drawPlatforms() {
             ctx.fillRect(x, y + platform.height - 3, platform.width, 3);
         } else {
             ctx.shadowColor = '#ff2bd6';
-            ctx.shadowBlur = 18;
+            ctx.shadowBlur = glowBoost;
 
             ctx.fillStyle = '#16162e';
             ctx.fillRect(x, y, platform.width, platform.height);
 
             ctx.fillStyle = '#ff2bd6';
-            ctx.fillRect(x, y, platform.width, 5);
+            ctx.fillRect(x, y, platform.width, topBarHeight);
 
             ctx.fillStyle = '#21e6ff';
-            ctx.fillRect(x, y + platform.height - 4, platform.width, 4);
+            ctx.fillRect(x, y + platform.height - edgeBarHeight, platform.width, edgeBarHeight);
         }
 
         ctx.restore();
@@ -315,16 +333,20 @@ function drawExit() {
     const x = exit.x - camera.x;
     const y = exit.y - camera.y;
 
+    // Neon-Sync: exit portal pulses with the beat
+    const bassPulse = neonSync.isActive ? neonSync.bassIntensity : 0;
+    const portalGlow = 25 + bassPulse * 25;
+
     ctx.save();
 
     ctx.shadowColor = '#21e6ff';
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = portalGlow;
 
     ctx.strokeStyle = '#21e6ff';
     ctx.lineWidth = 4;
     ctx.strokeRect(x, y, exit.width, exit.height);
 
-    ctx.fillStyle = 'rgba(33, 230, 255, 0.15)';
+    ctx.fillStyle = `rgba(33, 230, 255, ${0.15 + bassPulse * 0.12})`;
     ctx.fillRect(x, y, exit.width, exit.height);
 
     ctx.fillStyle = '#ff2bd6';

@@ -1,12 +1,14 @@
 /**
  * hudSystem.js - HUD drawing extracted from main.js
  * Uses state from gameState.js.
+ * Now powered by Neon-Sync: HUD elements pulse with music beats.
  */
 
 import { CONFIG } from './config.js';
 import { state } from './gameState.js';
 import { getWeaponDisplayName } from './weapons.js';
 import { drawCenterMessage } from './screens.js';
+import { neonSync } from './neonSync.js';
 
 export function drawHud() {
     const { ctx, player } = state;
@@ -18,6 +20,20 @@ export function drawHud() {
     drawBottomPanel();
 
     ctx.restore();
+
+    // Neon-Sync: Beat indicator dot in corner (subtle visual feedback)
+    if (neonSync.isActive && neonSync.timeSinceBeat < 0.2) {
+        const beatAlpha = (1 - neonSync.timeSinceBeat / 0.2) * 0.6;
+        ctx.save();
+        ctx.globalAlpha = beatAlpha;
+        ctx.shadowColor = '#b388ff';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#b388ff';
+        ctx.beginPath();
+        ctx.arc(CONFIG.width - 20, 20, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
 
     if (player.levelComplete) {
         drawCenterMessage('LEVEL COMPLETE', {
@@ -61,10 +77,18 @@ function drawTopHudValues(x, y, hudWidth, hudHeight) {
 
     ctx.textBaseline = 'middle';
 
+    // Neon-Sync: bar pulse on beat
+    const beatGlow = neonSync.isActive ? neonSync.bassIntensity * 0.35 : 0;
+
     // HP Bars
     for (let i = 0; i < 9; i++) {
-        ctx.fillStyle = i < player.lives
-            ? '#ff2bd6'
+        const isFilled = i < player.lives;
+        const pulseR = isFilled ? Math.min(255, 255 + Math.floor(beatGlow * 50)) : 255;
+        const pulseG = isFilled ? Math.min(255, 43 + Math.floor(beatGlow * 80)) : 255;
+        const pulseB = isFilled ? Math.min(255, 214 + Math.floor(beatGlow * 40)) : 255;
+
+        ctx.fillStyle = isFilled
+            ? `rgb(${pulseR},${pulseG},${pulseB})`
             : 'rgba(255,255,255,.10)';
 
         ctx.fillRect(
@@ -79,8 +103,11 @@ function drawTopHudValues(x, y, hudWidth, hudHeight) {
     const energyBars = Math.ceil(player.energy / 10);
 
     for (let i = 0; i < 10; i++) {
-        ctx.fillStyle = i < energyBars
-            ? '#21e6ff'
+        const isFilled = i < energyBars;
+        const pulseB2 = isFilled ? Math.min(255, 255 + Math.floor(beatGlow * 30)) : 255;
+
+        ctx.fillStyle = isFilled
+            ? `rgb(33, 230, ${pulseB2})`
             : 'rgba(33,230,255,.12)';
 
         ctx.fillRect(
@@ -249,10 +276,17 @@ function drawBottomHudValues(x, y, hudWidth, hudHeight) {
     ctx.save();
     ctx.textBaseline = 'middle';
 
+    // Neon-Sync: weapon panel pulse on beat
+    const neonPulse = neonSync.isActive ? neonSync.intensity * 0.15 : 0;
+
     if (state.weaponHudPulse > 0) {
         const pulse = state.weaponHudPulse / 0.45;
         ctx.shadowColor = '#21e6ff';
         ctx.shadowBlur = 18 + pulse * 24;
+    } else if (neonPulse > 0.02) {
+        // Subtle glow from music even without weapon switch
+        ctx.shadowColor = '#b388ff';
+        ctx.shadowBlur = neonPulse * 60;
     }
 
 

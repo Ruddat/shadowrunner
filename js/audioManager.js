@@ -1,14 +1,19 @@
+import { connectAudioElement, resumeNeonSync } from './neonSync.js';
+
 const tracks = {};
 const sounds = {};
 
 let currentMusic = null;
+let currentMusicName = null;
 let muted = false;
 let masterVolume = 0.75;
 let musicVolume = 0.65;
 let sfxVolume = 0.85;
 
 export function registerMusic(name, src, loop = true) {
-    const audio = new Audio(src);
+    const audio = new Audio();
+    audio.crossOrigin = 'anonymous'; // required for Web Audio API AnalyserNode
+    audio.src = src;
     audio.loop = loop;
     audio.preload = 'auto';
     audio.volume = masterVolume * musicVolume;
@@ -34,7 +39,14 @@ export function playMusic(name) {
     }
 
     currentMusic = tracks[name];
+    currentMusicName = name;
     currentMusic.volume = masterVolume * musicVolume;
+
+    // Ensure AudioContext is running (browser autoplay policy)
+    resumeNeonSync();
+
+    // Connect this audio element to neonSync analyser
+    connectAudioElement(currentMusic);
 
     currentMusic.play().catch(() => {
         console.warn('Audio konnte noch nicht gestartet werden.');
@@ -47,6 +59,7 @@ export function stopMusic() {
     currentMusic.pause();
     currentMusic.currentTime = 0;
     currentMusic = null;
+    currentMusicName = null;
 }
 
 export function playSound(name) {
@@ -77,4 +90,19 @@ export function setMasterVolume(value) {
     if (currentMusic) {
         currentMusic.volume = masterVolume * musicVolume;
     }
+}
+
+/**
+ * Get the currently playing audio element.
+ * Used by neonSync to connect to the analyser.
+ */
+export function getCurrentAudioElement() {
+    return currentMusic;
+}
+
+/**
+ * Get the name of the currently playing music track.
+ */
+export function getCurrentMusicName() {
+    return currentMusicName;
 }
