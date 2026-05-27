@@ -7,7 +7,7 @@ export const level2 = {
     },
 
     background: 'assets/backgrounds/level2-bg.png',
-    music: 'level1',
+    music: 'level2',
 
     platforms: [
         // Startzone
