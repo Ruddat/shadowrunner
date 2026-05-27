@@ -28,6 +28,13 @@ function mulberry32(seed) {
 const LEVEL_WIDTH = 4800;
 const CANVAS_HEIGHT = 540;
 const GROUND_Y = 412;
+const PLAYER_HEIGHT = 70;
+const PLAYER_WIDTH = 42;
+
+// Physics-derived jump limits (CONFIG.jumpForce=760, CONFIG.gravity=1900, CONFIG.moveSpeed=360)
+// Max vertical: v²/(2g) ≈ 152px, horizontal: speed * jump_time ≈ 288px
+const MAX_JUMP_HEIGHT = 150;   // slightly below theoretical max for safety
+const MAX_JUMP_DISTANCE = 280; // horizontal reach during a full jump
 
 const ENEMY_SIZE = { width: 46, height: 50 };
 const BONUS_BLOCK_SIZE = { width: 42, height: 42 };
@@ -75,7 +82,7 @@ export function generateProceduralLevel(seed) {
         name,
         mode: 'procedural',
         music: 'level1',
-        spawn: { x: 80, y: GROUND_Y - 60 },
+        spawn: { x: 80, y: 252 },
         background: 'assets/backgrounds/level3-bg.png',
 
         platforms,
@@ -125,7 +132,9 @@ function generatePlatforms(rng) {
 
     for (let section = 1; section <= sectionCount; section++) {
         const progress = section / sectionCount; // 0..1 difficulty ramp
-        const sectionType = rollSectionType(rng, progress);
+
+        // First section after starting platform is always flat for a smooth start
+        const sectionType = section === 1 ? 'flat' : rollSectionType(rng, progress);
 
         const sectionPlatforms = buildSection(rng, cursorX, sectionType, progress, section);
         platforms.push(...sectionPlatforms);
@@ -143,7 +152,46 @@ function generatePlatforms(rng) {
         height: 40,
     });
 
+    // Validate and fix reachability: every platform must be jumpable from the previous one
+    clampPlatformReachability(platforms);
+
     return platforms;
+}
+
+/**
+ * Ensure every platform is reachable from the previous one.
+ * If the vertical or horizontal gap exceeds jump limits,
+ * lower the platform or move it closer so the player can always proceed.
+ */
+function clampPlatformReachability(platforms) {
+    for (let i = 1; i < platforms.length; i++) {
+        const prev = platforms[i - 1];
+        const curr = platforms[i];
+
+        // Calculate horizontal gap (edge of prev to left edge of curr)
+        const hGap = curr.x - (prev.x + prev.width);
+
+        // Calculate vertical difference (negative = curr is higher = harder to reach)
+        // Player stands at prev.y - PLAYER_HEIGHT, jumps to curr.y - PLAYER_HEIGHT
+        const vDiff = (prev.y - PLAYER_HEIGHT) - (curr.y - PLAYER_HEIGHT);
+        // vDiff > 0 means curr is higher (player needs to jump up)
+
+        // If horizontal gap is too large, pull the platform closer
+        if (hGap > MAX_JUMP_DISTANCE) {
+            curr.x = prev.x + prev.width + MAX_JUMP_DISTANCE - 10;
+        }
+
+        // If vertical climb is too high for the jump, lower the platform
+        // (make curr.y larger = lower on screen = easier to reach)
+        if (vDiff > MAX_JUMP_HEIGHT) {
+            curr.y = prev.y - MAX_JUMP_HEIGHT + 10;
+            // Don't push below ground
+            curr.y = Math.min(curr.y, GROUND_Y);
+        }
+
+        // Safety: never go above y=100 (too close to ceiling)
+        curr.y = Math.max(curr.y, 100);
+    }
 }
 
 function rollSectionType(rng, progress) {
@@ -174,9 +222,10 @@ function rollSectionType(rng, progress) {
 }
 
 function gapSize(rng, progress) {
-    const base = 60 + Math.floor(rng() * 80);
-    const difficultyBonus = Math.floor(progress * 60);
-    return base + difficultyBonus;
+    const base = 50 + Math.floor(rng() * 70);
+    const difficultyBonus = Math.floor(progress * 50);
+    // Cap gap so player can always jump across (max horizontal reach ~280px)
+    return Math.min(base + difficultyBonus, 220);
 }
 
 function buildSection(rng, startX, type, progress, sectionIndex) {
@@ -193,11 +242,15 @@ function buildSection(rng, startX, type, progress, sectionIndex) {
         case 'steps-up': {
             const steps = 2 + Math.floor(rng() * 2);
             let x = startX;
+            let prevY = GROUND_Y; // starting from ground level
             for (let i = 0; i < steps; i++) {
-                const w = 130 + Math.floor(rng() * 100);
-                const y = GROUND_Y - (i + 1) * (50 + Math.floor(rng() * 30));
-                platforms.push({ x, y: Math.max(100, y), width: w, height: 32 });
-                x += w + 40 + Math.floor(rng() * 50);
+                const w = 140 + Math.floor(rng() * 100);
+                // Each step rises at most MAX_JUMP_HEIGHT so it's always reachable
+                const stepRise = 50 + Math.floor(rng() * 60); // 50-110px per step
+                const y = Math.max(100, prevY - stepRise);
+                platforms.push({ x, y, width: w, height: 32 });
+                x += w + 40 + Math.floor(rng() * 40);
+                prevY = y;
             }
             break;
         }
@@ -205,23 +258,33 @@ function buildSection(rng, startX, type, progress, sectionIndex) {
         case 'steps-down': {
             const steps = 2 + Math.floor(rng() * 2);
             let x = startX;
+            // Start high, descend to ground
+            let currentY = GROUND_Y - steps * 60 - Math.floor(rng() * 40);
+            currentY = Math.max(100, currentY);
             for (let i = 0; i < steps; i++) {
                 const w = 140 + Math.floor(rng() * 120);
-                const y = GROUND_Y - (steps - i) * (45 + Math.floor(rng() * 25));
-                platforms.push({ x, y: Math.max(100, y), width: w, height: 32 });
+                const stepDrop = 50 + Math.floor(rng() * 40); // 50-90px drop per step
+                const y = Math.min(GROUND_Y, currentY);
+                platforms.push({ x, y, width: w, height: 32 });
                 x += w + 50 + Math.floor(rng() * 40);
+                currentY += stepDrop;
             }
             break;
         }
 
         case 'pillars': {
             const count = 3 + Math.floor(rng() * 3);
+            let prevPillarY = GROUND_Y;
             for (let i = 0; i < count; i++) {
-                const w = 80 + Math.floor(rng() * 60);
-                const y = GROUND_Y - 40 - Math.floor(rng() * 140);
-                const gap = 80 + Math.floor(rng() * 100);
+                const w = 90 + Math.floor(rng() * 60);
+                // Each pillar varies at most ±MAX_JUMP_HEIGHT from the previous one
+                const rise = Math.floor(rng() * MAX_JUMP_HEIGHT * 0.8); // up to ~120px rise
+                const drop = Math.floor(rng() * 80); // up to 80px drop
+                const y = Math.max(120, Math.min(GROUND_Y, prevPillarY - rise + drop));
+                const gap = 80 + Math.floor(rng() * 80); // 80-160px gap
                 const x = startX + i * (w + gap);
-                platforms.push({ x, y: Math.max(120, y), width: w, height: 32 });
+                platforms.push({ x, y, width: w, height: 32 });
+                prevPillarY = y;
             }
             break;
         }
@@ -230,27 +293,33 @@ function buildSection(rng, startX, type, progress, sectionIndex) {
             // Two platforms at different heights with a gap
             const w1 = 160 + Math.floor(rng() * 120);
             const w2 = 160 + Math.floor(rng() * 120);
-            const y1 = GROUND_Y - 60 - Math.floor(rng() * 80);
-            const y2 = GROUND_Y - 40 - Math.floor(rng() * 60);
-            const gap = 100 + Math.floor(rng() * 120);
+            const y1 = GROUND_Y - 40 - Math.floor(rng() * 60); // 40-100px above ground
+            // Second platform must be reachable from the first
+            const maxRise = MAX_JUMP_HEIGHT - 20; // safety margin
+            const y2 = Math.min(GROUND_Y, y1 + Math.floor(rng() * 80) - Math.floor(rng() * maxRise));
+            const gap = 100 + Math.floor(rng() * 80); // 100-180px gap
 
             platforms.push({ x: startX, y: Math.max(120, y1), width: w1, height: 32 });
-            platforms.push({ x: startX + w1 + gap, y: Math.max(120, y2), width: w2, height: 32 });
+            platforms.push({ x: startX + w1 + gap, y: Math.max(120, Math.min(GROUND_Y, y2)), width: w2, height: 32 });
             break;
         }
 
         case 'tower': {
-            // Vertical stack with a wide base
+            // Vertical stack with a wide base - each tier reachable from the one below
             const baseW = 200 + Math.floor(rng() * 150);
             platforms.push({ x: startX, y: GROUND_Y, width: baseW, height: 40 });
 
-            const midX = startX + Math.floor(rng() * 60);
+            const midX = startX + Math.floor(rng() * 40);
             const midW = 120 + Math.floor(rng() * 80);
-            platforms.push({ x: midX, y: GROUND_Y - 90, width: midW, height: 28 });
+            // Mid tier: at most MAX_JUMP_HEIGHT above base
+            const midY = GROUND_Y - 80 - Math.floor(rng() * 40); // 80-120px above ground
+            platforms.push({ x: midX, y: Math.max(120, midY), width: midW, height: 28 });
 
-            const topX = startX + Math.floor(rng() * 80);
+            const topX = startX + Math.floor(rng() * 60);
             const topW = 100 + Math.floor(rng() * 60);
-            platforms.push({ x: topX, y: GROUND_Y - 170 - Math.floor(rng() * 40), width: topW, height: 28 });
+            // Top tier: at most MAX_JUMP_HEIGHT above mid tier
+            const topY = midY - 80 - Math.floor(rng() * 40); // 80-120px above mid
+            platforms.push({ x: topX, y: Math.max(120, topY), width: topW, height: 28 });
             break;
         }
     }
