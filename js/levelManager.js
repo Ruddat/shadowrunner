@@ -22,7 +22,7 @@ import {
 import { playSound, stopMusic, playMusic } from './audioManager.js';
 import { damageBossInRadius } from './bossSystem.js';
 import { initLevelFx } from './levelFx.js';
-import { getLevel } from './levels.js';
+import { getLevel, LEVEL_COUNT } from './levels.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
@@ -67,6 +67,12 @@ export function loadNextLevel() {
 
     state.currentLevelIndex++;
 
+    // BUG FIX: Detect game completion instead of repeating boss endlessly
+    if (state.currentLevelIndex >= LEVEL_COUNT) {
+        state.gameState = 'credits';
+        return;
+    }
+
     state.currentLevel = getLevel(state.currentLevelIndex);
     state.levelBackground.src = state.currentLevel.background;
 
@@ -80,6 +86,7 @@ export function loadNextLevel() {
     player.velocityY = 0;
     player.levelComplete = false;
     player.gems = 0;
+    player.keys = 0;  // BUG FIX: Reset keys between levels
 
     camera.x = 0;
     camera.y = 0;
@@ -115,6 +122,7 @@ export function retryCurrentLevel() {
     player.weaponLevel = 1;
 
     player.gems = 0;
+    player.keys = 0;  // BUG FIX: Reset keys on retry
     player.levelComplete = false;
     player.isGameOver = false;
     player.deathsThisLevel = 0;
@@ -464,10 +472,13 @@ function getPlasmaExplosionRadius(projectile) {
 }
 
 function damageEnemiesInRadius(centerX, centerY, radius, damage) {
-    const { currentLevel: level } = state;
+    const { currentLevel: level, player } = state;
 
     for (const enemy of level.enemies) {
         if (enemy.active === false) continue;
+
+        // BUG FIX: Shadow-only enemies can only be damaged in shadow mode (also blocks AOE)
+        if (enemy.shadowOnly && !player.shadowShift) continue;
 
         const enemyCenterX = enemy.x + enemy.width / 2;
         const enemyCenterY = enemy.y + enemy.height / 2;

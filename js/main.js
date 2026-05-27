@@ -38,11 +38,7 @@ import {
     handleTitleKey,
     handleTitleClick,
 } from './titleScreen.js';
-import {
-    initCreditsScreen,
-    updateCreditsScreen,
-    drawCreditsScreen,
-} from './creditsScreen.js';
+import { initCreditsScreen } from './creditsScreen.js';
 
 // New modules
 import { state } from './gameState.js';
@@ -484,10 +480,15 @@ window.addEventListener('keydown', (e) => {
             state.gameState = 'credits';
         }
 
-        if (action === 'NEW GAME') {
+        if (action === 'NEW GAME' || action === 'CONTINUE') {
             stopMusic();
             playMusic(state.currentLevel.music ?? 'level1');
             state.gameState = 'playing';
+        }
+
+        if (action === 'EXIT') {
+            state.gameState = 'intro';
+            return;
         }
 
         return;
@@ -503,6 +504,11 @@ window.addEventListener('keydown', (e) => {
     if (state.gameState === 'levelComplete' && e.code === 'Enter') {
         stopMusic();
         loadNextLevel();
+        // BUG FIX: loadNextLevel may transition to credits if all levels done
+        if (state.gameState === 'credits') {
+            playMusic('credits');
+            return;
+        }
         playMusic(state.currentLevel.music ?? 'level1');
         state.gameState = 'playing';
         return;
@@ -542,16 +548,32 @@ canvas.addEventListener('click', () => {
     if (state.gameState === 'title') {
         const action = handleTitleClick();
 
-        if (action === 'NEW GAME') {
+        if (action === 'NEW GAME' || action === 'CONTINUE') {
             stopMusic();
-            playMusic('level1');
+            playMusic(state.currentLevel.music ?? 'level1');
             state.gameState = 'playing';
+        }
+
+        if (action === 'CREDITS') {
+            initCreditsScreen();
+            stopMusic();
+            playMusic('credits');
+            state.gameState = 'credits';
+        }
+
+        if (action === 'EXIT') {
+            state.gameState = 'intro';
         }
     }
 
     if (state.gameState === 'levelComplete') {
         stopMusic();
         loadNextLevel();
+        // BUG FIX: loadNextLevel may transition to credits if all levels done
+        if (state.gameState === 'credits') {
+            playMusic('credits');
+            return;
+        }
         playMusic(state.currentLevel.music ?? 'level1');
         state.gameState = 'playing';
         return;

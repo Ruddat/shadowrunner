@@ -140,6 +140,10 @@ export function drawEnemies() {
     for (const enemy of level.enemies) {
         if (enemy.active === false) continue;
 
+        // BUG FIX: Shadow-only enemies are drawn by drawShadowEnemyAuras instead
+        // to avoid double-rendering visual artifacts
+        if (enemy.shadowOnly) continue;
+
         const x = enemy.x - camera.x;
         const y = enemy.y - camera.y;
 

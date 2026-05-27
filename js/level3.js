@@ -163,5 +163,6 @@ export const level3 = {
         y: 302,
         width: 70,
         height: 100,
+        locked: false,
     },
 };

@@ -39,8 +39,11 @@ function updateExitUnlock(player, level) {
     if (!level.exit) return;
     if (level.exit.locked === false) return;
 
-    const requiredKeys = level.exit.keysRequired ?? 0;
-    const keysOk = requiredKeys <= 0 || (player.keys ?? 0) >= requiredKeys;
+    // BUG FIX: Only check keysOk when keysRequired is explicitly defined
+    // Previously: keysRequired ?? 0 meant 0 keys always satisfied the check,
+    // causing boss exit to unlock immediately
+    const requiredKeys = level.exit.keysRequired;
+    const keysOk = requiredKeys != null && (player.keys ?? 0) >= requiredKeys;
 
     const gemsMode = level.exit.unlockMode === 'allGems' || level.exit.unlockMode === 'allGemsOrEnemiesOrKeys';
     const enemiesMode = level.exit.unlockMode === 'allEnemies' || level.exit.unlockMode === 'allGemsOrEnemiesOrKeys';
@@ -104,7 +107,7 @@ function drawPortalOverlay(ctx, camera, level) {
     const centerX = x + exit.width / 2;
     const centerY = y + exit.height / 2;
     const t = performance.now() / 1000;
-    const open = exit.locked === false;
+    const open = exit.locked !== true;
 
     ctx.save();
 

@@ -178,7 +178,8 @@ export function triggerGameOver() {
 
     if (state.gameState === 'gameOver') return;
 
-    state.gameOverStats = {
+    // Freeze stats so nothing can accidentally mutate or delete them
+    state.gameOverStats = Object.freeze({
         levelName: level.name ?? 'UNKNOWN LEVEL',
         score: player.score ?? 0,
         gems: player.gems ?? 0,
@@ -187,7 +188,7 @@ export function triggerGameOver() {
             ? level.enemies.filter(enemy => enemy.active === false).length
             : 0,
         enemiesTotal: level.enemies?.length ?? 0,
-    };
+    });
 
     // BUG FIX: Do NOT set gameOverStats = null here.
     // The stats must be preserved for the game over screen to display.
@@ -251,7 +252,9 @@ export function drawGameOverScreen() {
         score: player.score ?? 0,
         gems: player.gems ?? 0,
         reachedLevel: state.currentLevelIndex + 1,
-        enemiesDefeated: 0,
+        enemiesDefeated: level.enemies
+            ? level.enemies.filter(e => e.active === false).length
+            : 0,
         enemiesTotal: level.enemies?.length ?? 0,
     };
 
