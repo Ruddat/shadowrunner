@@ -365,7 +365,7 @@ function generateEnemies(rng, platforms) {
 
     // Enemy type pool: more variety as difficulty ramps
     // walker is default (no type field), others get explicit type
-    const ENEMY_TYPES = ['walker', 'walker', 'drone', 'shield', 'mech', 'turret'];
+    const ENEMY_TYPES = ['walker', 'walker', 'drone', 'shield', 'mech', 'turret', 'ninja'];
 
     for (let i = 0; i < enemyCount; i++) {
         const platform = validPlatforms[i % validPlatforms.length];
@@ -382,19 +382,21 @@ function generateEnemies(rng, platforms) {
         } else if (progress < 0.5) {
             // Mid: introduce shields and turrets
             const roll = rng();
-            if (roll < 0.35) type = 'walker';
-            else if (roll < 0.55) type = 'drone';
-            else if (roll < 0.75) type = 'shield';
-            else if (roll < 0.9) type = 'turret';
-            else type = 'mech';
+            if (roll < 0.3) type = 'walker';
+            else if (roll < 0.5) type = 'drone';
+            else if (roll < 0.7) type = 'shield';
+            else if (roll < 0.85) type = 'turret';
+            else if (roll < 0.95) type = 'mech';
+            else type = 'ninja';
         } else {
-            // Late: full mix with mechs
+            // Late: full mix with mechs and ninjas
             const roll = rng();
-            if (roll < 0.2) type = 'walker';
-            else if (roll < 0.4) type = 'drone';
-            else if (roll < 0.6) type = 'shield';
-            else if (roll < 0.8) type = 'turret';
-            else type = 'mech';
+            if (roll < 0.15) type = 'walker';
+            else if (roll < 0.3) type = 'drone';
+            else if (roll < 0.5) type = 'shield';
+            else if (roll < 0.65) type = 'turret';
+            else if (roll < 0.8) type = 'mech';
+            else type = 'ninja';
         }
 
         const enemyX = platform.x + 10 + Math.floor(rng() * Math.max(10, platform.width - 60));
@@ -410,6 +412,9 @@ function generateEnemies(rng, platforms) {
         } else if (type === 'turret') {
             width = 42; height = 42;
             enemyY = platform.y - height;
+        } else if (type === 'ninja') {
+            width = 42; height = 50;
+            enemyY = platform.y - height;
         } else {
             width = ENEMY_SIZE.width; height = ENEMY_SIZE.height;
             enemyY = platform.y - height;
@@ -418,12 +423,14 @@ function generateEnemies(rng, platforms) {
         const speed = type === 'turret' ? 0
             : type === 'mech' ? 55 + Math.floor(rng() * 20)
             : type === 'shield' ? 70 + Math.floor(rng() * 30)
+            : type === 'ninja' ? 160 + Math.floor(rng() * 40)
             : type === 'drone' ? 60 + Math.floor(rng() * 30)
             : 100 + Math.floor(progress * 120) + Math.floor(rng() * 40);
 
         const health = type === 'mech' ? 5 + Math.floor(progress * 4)
             : type === 'shield' ? 3 + Math.floor(progress * 2)
             : type === 'turret' ? 4 + Math.floor(progress * 2)
+            : type === 'ninja' ? 2 + Math.floor(progress * 3)
             : type === 'drone' ? 2 + Math.floor(progress * 2)
             : 1 + Math.floor(progress * 4) + (isShadowOnly ? 2 : 0);
 
@@ -455,17 +462,19 @@ function generateEnemies(rng, platforms) {
         }
 
         // Shooting config per type
-        if (type === 'walker' || type === 'drone' || type === 'shield') {
-            const canShoot = rng() < (type === 'drone' ? 0.65 : 0.2 + progress * 0.35);
+        if (type === 'walker' || type === 'drone' || type === 'shield' || type === 'ninja') {
+            const canShoot = rng() < (type === 'drone' ? 0.65 : type === 'ninja' ? 0.5 : 0.2 + progress * 0.35);
             if (canShoot) {
                 enemy.canShoot = true;
                 enemy.shootDelay = type === 'drone' ? 2.0 - progress * 0.4 + rng() * 0.3
+                    : type === 'ninja' ? 1.8 - progress * 0.4 + rng() * 0.3
                     : type === 'shield' ? 2.0 - progress * 0.5 + rng() * 0.3
                     : 1.6 - progress * 0.6 + rng() * 0.3;
                 enemy.shootRangeX = 420 + Math.floor(rng() * 160);
                 enemy.shootRangeY = type === 'drone' ? 220 : 180;
                 enemy.projectileSpeed = 320 + Math.floor(progress * 180);
                 enemy.projectileColor = type === 'drone' ? '#ff6b00'
+                    : type === 'ninja' ? '#22d3ee'
                     : type === 'shield' ? '#3b82f6'
                     : isShadowOnly ? '#b388ff' : '#ff003c';
                 enemy.projectileDamage = 18 + Math.floor(progress * 16);

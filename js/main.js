@@ -92,7 +92,7 @@ import {
 } from './hackingMinigame.js';
 
 // Sprite System
-import { initPlayerSprite } from './spriteManager.js';
+import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 
 // --- Init ---
 
@@ -143,6 +143,7 @@ initCreditsScreen();
 initLevelFx();
 initNeonSync(); // Neon-Sync: AudioContext + AnalyserNode
 initPlayerSprite(); // Load player sprite sheet
+initEnemySprites(); // Load enemy sprite sheets
 
 // --- Update ---
 

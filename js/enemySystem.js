@@ -1,15 +1,17 @@
 /**
- * enemySystem.js - Enemy logic with 5 enemy types
+ * enemySystem.js - Enemy logic with 5 enemy types + sprite rendering
  *
  * Types:
- *   walker   (default) - patrols left/right on platforms
- *   drone    - flying enemy, hovers and swoops toward player
- *   shield   - blocks projectiles from front, vulnerable from behind
- *   mech     - charges at high speed when player is in range
- *   turret   - stationary, rotates and shoots at player
+ *   walker   (default) - patrols left/right on platforms   [SPRITE]
+ *   drone    - flying enemy, hovers and swoops toward player [CANVAS]
+ *   shield   - blocks projectiles from front, vulnerable from behind [SPRITE + OVERLAY]
+ *   mech     - charges at high speed when player is in range [SPRITE]
+ *   turret   - stationary, rotates and shoots at player    [CANVAS]
+ *   ninja    - stealth assassin, fast & evasive            [SPRITE]
  *
  * All enemies share the base properties: x, y, width, height, health, active
  * Plus type-specific properties (see each update/draw function).
+ * Sprite types get an `anim` (AnimationState) and `useSprites = true`.
  */
 
 import { CONFIG } from './config.js';
@@ -18,6 +20,7 @@ import { spawnParticles } from './particles.js';
 import { state } from './gameState.js';
 import { showCenterMessage } from './screens.js';
 import { playSound } from './audioManager.js';
+import { getEnemySprite, AnimationState } from './spriteManager.js';
 
 // --- Main Update ---
 
@@ -29,13 +32,20 @@ export function updateEnemies(dt) {
 
         const type = enemy.type ?? 'walker';
 
+        // Initialize animation state for sprite-based enemies
+        initEnemyAnim(enemy, type);
+
         switch (type) {
             case 'drone':   updateDrone(enemy, dt); break;
             case 'shield':  updateShield(enemy, dt); break;
             case 'mech':    updateMech(enemy, dt); break;
             case 'turret':  updateTurret(enemy, dt); break;
+            case 'ninja':   updateNinja(enemy, dt); break;
             default:        updateWalker(enemy, dt); break;
         }
+
+        // Update sprite animation for sprite-based enemies
+        updateEnemyAnim(enemy, type, dt);
 
         // Contact damage (all types)
         if (rectsOverlap(player, enemy)) {
@@ -51,6 +61,46 @@ export function updateEnemies(dt) {
             }
         }
     }
+}
+
+// --- Enemy Animation Helpers ---
+
+/** Types that use sprite rendering */
+const SPRITE_TYPES = new Set(['walker', 'shield', 'mech', 'ninja']);
+
+function initEnemyAnim(enemy, type) {
+    if (enemy._animInit) return;
+    enemy._animInit = true;
+
+    if (SPRITE_TYPES.has(type)) {
+        enemy.anim = new AnimationState('idle');
+        enemy.useSprites = true;
+    } else {
+        enemy.useSprites = false;
+    }
+}
+
+function updateEnemyAnim(enemy, type, dt) {
+    if (!enemy.useSprites || !enemy.anim) return;
+
+    const sprite = getEnemySprite(type);
+    if (!sprite) return;
+
+    // Determine animation state from enemy behavior
+    let animName = 'idle';
+
+    if (enemy._dying) {
+        animName = 'death';
+    } else if (type === 'mech' && enemy.charging) {
+        animName = 'charge';
+    } else if (enemy._attacking) {
+        animName = 'attack';
+    } else if (Math.abs(enemy.speed * enemy.direction) > 1) {
+        animName = 'walk';
+    }
+
+    enemy.anim.play(animName);
+    enemy.anim.update(dt, sprite);
 }
 
 // --- Walker (original enemy) ---
@@ -254,6 +304,114 @@ function updateTurret(enemy, dt) {
     updateEnemyShooter(enemy, dt);
 }
 
+// --- Ninja: Stealth assassin, fast & evasive ---
+
+function updateNinja(enemy, dt) {
+    const { player } = state;
+
+    // Initialize ninja-specific state
+    if (enemy.ninjaPhase === undefined) {
+        enemy.ninjaPhase = 'stalk';    // stalk | attack | retreat | cloak
+        enemy.ninjaTimer = 0;
+        enemy.ninjaCloakAlpha = 1;     // 1 = visible, 0 = cloaked
+        enemy.ninjaCloaking = false;
+        enemy.ninjaSpeed = enemy.speed ?? 180;  // faster than walkers
+        enemy.ninjaAttackSpeed = 450;            // lunge speed
+        enemy.ninjaRetreatSpeed = 250;
+        enemy.ninjaAttackRange = 200;
+        enemy.ninjaCloakCooldown = 0;
+    }
+
+    enemy.ninjaTimer -= dt;
+    if (enemy.ninjaCloakCooldown > 0) enemy.ninjaCloakCooldown -= dt;
+
+    const dx = (player.x + player.width / 2) - (enemy.x + enemy.width / 2);
+    const dy = (player.y + player.height / 2) - (enemy.y + enemy.height / 2);
+    const dist = Math.hypot(dx, dy);
+
+    switch (enemy.ninjaPhase) {
+        case 'stalk':
+            // Slowly approach player, keeping some distance
+            enemy.direction = dx > 0 ? 1 : -1;
+            enemy.x += enemy.direction * enemy.ninjaSpeed * 0.5 * dt;
+
+            // Stay within bounds
+            if (enemy.x <= enemy.minX) { enemy.x = enemy.minX; enemy.direction = 1; }
+            if (enemy.x + enemy.width >= enemy.maxX) { enemy.x = enemy.maxX - enemy.width; enemy.direction = -1; }
+
+            // When close enough, lunge into attack
+            if (dist < enemy.ninjaAttackRange && enemy.ninjaTimer <= 0) {
+                enemy.ninjaPhase = 'attack';
+                enemy.direction = dx > 0 ? 1 : -1;
+                enemy.ninjaTimer = 0.4; // attack duration
+                enemy._attacking = true;
+                playSound('menuSelect');
+            }
+
+            // Occasionally cloak when far away
+            if (dist > 350 && enemy.ninjaCloakCooldown <= 0 && Math.random() < 0.005) {
+                enemy.ninjaPhase = 'cloak';
+                enemy.ninjaTimer = 2.0;
+            }
+            break;
+
+        case 'attack':
+            // Fast lunge toward player
+            enemy.x += enemy.direction * enemy.ninjaAttackSpeed * dt;
+
+            if (enemy.ninjaTimer <= 0) {
+                enemy.ninjaPhase = 'retreat';
+                enemy.ninjaTimer = 0.8;
+                enemy._attacking = false;
+                enemy.direction = dx > 0 ? -1 : 1; // retreat away from player
+            }
+            break;
+
+        case 'retreat':
+            // Quick dash away
+            enemy.x += enemy.direction * enemy.ninjaRetreatSpeed * dt;
+
+            if (enemy.x <= enemy.minX) { enemy.x = enemy.minX; enemy.direction = 1; }
+            if (enemy.x + enemy.width >= enemy.maxX) { enemy.x = enemy.maxX - enemy.width; enemy.direction = -1; }
+
+            if (enemy.ninjaTimer <= 0) {
+                enemy.ninjaPhase = 'stalk';
+                enemy.ninjaTimer = 1.5;
+            }
+            break;
+
+        case 'cloak':
+            // Fade out, reposition, fade in
+            enemy.ninjaCloaking = true;
+            if (enemy.ninjaTimer > 1.0) {
+                enemy.ninjaCloakAlpha = Math.max(0, enemy.ninjaCloakAlpha - dt * 3);
+            } else if (enemy.ninjaTimer > 0) {
+                // Reposition while invisible
+                enemy.ninjaCloakAlpha = 0;
+                const teleportDir = dx > 0 ? -1 : 1;
+                enemy.x += teleportDir * 200 * dt;
+                if (enemy.x < enemy.minX) enemy.x = enemy.minX;
+                if (enemy.x + enemy.width > enemy.maxX) enemy.x = enemy.maxX - enemy.width;
+            }
+
+            if (enemy.ninjaTimer <= 0) {
+                enemy.ninjaPhase = 'stalk';
+                enemy.ninjaTimer = 1.0;
+                enemy.ninjaCloaking = false;
+                enemy.ninjaCloakCooldown = 5.0;
+            }
+            break;
+    }
+
+    // Fade back in if not cloaking
+    if (!enemy.ninjaCloaking) {
+        enemy.ninjaCloakAlpha = Math.min(1, enemy.ninjaCloakAlpha + dt * 4);
+    }
+
+    // Ninjas can shoot (throwing stars)
+    updateEnemyShooter(enemy, dt);
+}
+
 // --- Shared Shooter Logic ---
 
 function updateEnemyShooter(enemy, dt) {
@@ -383,13 +541,134 @@ export function drawEnemies() {
 
         switch (type) {
             case 'drone':   drawDrone(ctx, enemy, x, y); break;
-            case 'shield':  drawShield(ctx, enemy, x, y, player); break;
-            case 'mech':    drawMech(ctx, enemy, x, y); break;
+            case 'shield':  drawSpriteOrFallback(ctx, enemy, type, x, y, () => drawShield(ctx, enemy, x, y, player)); break;
+            case 'mech':    drawSpriteOrFallback(ctx, enemy, type, x, y, () => drawMech(ctx, enemy, x, y)); break;
             case 'turret':  drawTurret(ctx, enemy, x, y); break;
-            default:        drawWalker(ctx, enemy, x, y); break;
+            case 'ninja':   drawSpriteOrFallback(ctx, enemy, type, x, y, () => drawNinja(ctx, enemy, x, y)); break;
+            default:        drawSpriteOrFallback(ctx, enemy, type, x, y, () => drawWalker(ctx, enemy, x, y)); break;
         }
 
         ctx.restore();
+    }
+}
+
+// --- Sprite-based drawing with canvas fallback ---
+
+function drawSpriteOrFallback(ctx, enemy, type, x, y, fallbackFn) {
+    const sprite = getEnemySprite(type);
+
+    if (enemy.useSprites && sprite && sprite.loaded && enemy.anim) {
+        drawEnemySprite(ctx, enemy, sprite, x, y, type);
+    } else {
+        fallbackFn();
+    }
+}
+
+function drawEnemySprite(ctx, enemy, sprite, x, y, type) {
+    const drawW = enemy.width;
+    const drawH = enemy.height;
+
+    // Scale sprite frame to fit the enemy hitbox (align feet)
+    const scale = drawH / sprite.frameHeight;
+    const scaledW = sprite.frameWidth * scale;
+    const offsetX = (drawW - scaledW) / 2;
+
+    // Ninja cloak alpha
+    if (type === 'ninja' && enemy.ninjaCloakAlpha !== undefined) {
+        ctx.globalAlpha = Math.max(0.05, enemy.ninjaCloakAlpha);
+    }
+
+    // Charge warning glow for mech
+    if (type === 'mech' && enemy.chargeCooldown > 1.0 && enemy.chargeCooldown < 1.5) {
+        const flashAlpha = Math.sin(Date.now() / 50) * 0.5 + 0.5;
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha * 0.4})`;
+        ctx.fillRect(x - 8, y - 8, enemy.width + 16, enemy.height + 16);
+    }
+
+    // Charge trail for mech
+    if (type === 'mech' && enemy.charging) {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+        for (let i = 0; i < 3; i++) {
+            const trailX = x + (enemy.direction === 1 ? -i * 12 : enemy.width + i * 12);
+            const trailY = y + 10 + i * 15;
+            ctx.fillRect(trailX, trailY, 8, 6);
+        }
+    }
+
+    // Draw the sprite frame
+    sprite.drawFrame(
+        ctx,
+        x + offsetX,
+        y,
+        enemy.anim.current,
+        enemy.anim.frameIndex,
+        enemy.direction,
+        { width: scaledW, height: drawH }
+    );
+
+    // Ninja afterimage effect during attack
+    if (type === 'ninja' && enemy.ninjaPhase === 'attack') {
+        ctx.globalAlpha = 0.3;
+        sprite.drawFrame(
+            ctx,
+            x + offsetX - enemy.direction * 15,
+            y,
+            enemy.anim.current,
+            enemy.anim.frameIndex,
+            enemy.direction,
+            { width: scaledW, height: drawH }
+        );
+        ctx.globalAlpha = 0.15;
+        sprite.drawFrame(
+            ctx,
+            x + offsetX - enemy.direction * 30,
+            y,
+            enemy.anim.current,
+            enemy.anim.frameIndex,
+            enemy.direction,
+            { width: scaledW, height: drawH }
+        );
+        ctx.globalAlpha = 1;
+    }
+
+    // Shield overlay (drawn on top of sprite)
+    if (type === 'shield') {
+        drawShieldOverlay(ctx, enemy, x, y);
+    }
+}
+
+// --- Shield overlay (drawn on top of the sprite) ---
+
+function drawShieldOverlay(ctx, enemy, x, y) {
+    const shieldOnFront = enemy.shieldHP > 0;
+
+    if (shieldOnFront) {
+        const shieldX = enemy.facingPlayer ? (x + enemy.width - 3) : (x - 10);
+
+        ctx.shadowColor = '#60a5fa';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.5)';
+        ctx.fillRect(shieldX, y - 4, 12, enemy.height + 8);
+
+        ctx.strokeStyle = '#93c5fd';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(shieldX, y - 4, 12, enemy.height + 8);
+
+        // Shield energy indicator
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#60a5fa';
+        ctx.font = '900 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${enemy.shieldHP}`, shieldX + 6, y + enemy.height + 14);
+        ctx.textAlign = 'left';
+    } else {
+        // Broken shield indicator (dim)
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.3)';
+        const brokenX = enemy.facingPlayer ? (x + enemy.width - 3) : (x - 10);
+        ctx.fillRect(brokenX, y - 4, 12, enemy.height + 8);
     }
 }
 
@@ -613,6 +892,57 @@ function drawTurret(ctx, enemy, x, y) {
     ctx.beginPath();
     ctx.arc(x + enemy.width / 2 + Math.cos(angle) * 2, y + enemy.height / 2 + Math.sin(angle) * 2, 2.5, 0, Math.PI * 2);
     ctx.fill();
+}
+
+// --- Ninja draw (canvas fallback) ---
+
+function drawNinja(ctx, enemy, x, y) {
+    // Cloak alpha
+    if (enemy.ninjaCloakAlpha !== undefined) {
+        ctx.globalAlpha = Math.max(0.05, enemy.ninjaCloakAlpha);
+    }
+
+    // Body glow
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 18;
+
+    // Body
+    ctx.fillStyle = '#0a1628';
+    ctx.fillRect(x, y, enemy.width, enemy.height);
+
+    // Cyan fiber-optic lines
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillRect(x + 6, y + 8, 3, 20);
+    ctx.fillRect(x + enemy.width - 9, y + 8, 3, 20);
+
+    // Eye slit
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillRect(x + 10, y + 12, 22, 6);
+
+    // Legs
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x + 4, y + 36, 10, 14);
+    ctx.fillRect(x + enemy.width - 14, y + 36, 10, 14);
+
+    // Attack effect: blade slash
+    if (enemy.ninjaPhase === 'attack') {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 22;
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const slashX = enemy.direction === 1 ? x + enemy.width : x;
+        ctx.moveTo(slashX, y + 5);
+        ctx.lineTo(slashX + enemy.direction * 18, y + 30);
+        ctx.stroke();
+
+        // Afterimage
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#0a1628';
+        ctx.fillRect(x - enemy.direction * 12, y, enemy.width, enemy.height);
+    }
+
+    ctx.globalAlpha = 1;
 }
 
 // --- Enemy Projectile Draw ---

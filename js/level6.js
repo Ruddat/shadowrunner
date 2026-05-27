@@ -345,6 +345,27 @@ export const level6 = {
             projectileSpeed: 360,
             projectileColor: '#ff003c',
         },
+
+        // Ninja assassin — stalks & ambushes
+        {
+            type: 'ninja',
+            canShoot: true,
+            shootDelay: 1.6,
+            shootRangeX: 400,
+            shootRangeY: 200,
+            projectileSpeed: 380,
+            projectileColor: '#22d3ee',
+            x: 3820,
+            y: 192,
+            width: 42,
+            height: 50,
+            minX: 3800,
+            maxX: 3980,
+            speed: 170,
+            direction: -1,
+            health: 3,
+            active: true,
+        },
     ],
 
     fx: {
