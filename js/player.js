@@ -8,6 +8,7 @@ import { spawnParticles } from './particles.js';
 import { rectsOverlap } from './collision.js';
 import { showCenterMessage } from './screens.js';
 import { state } from './gameState.js';
+import { getPlayerSprite, AnimationState } from './spriteManager.js';
 
 export class Player {
     constructor(x, y) {
@@ -59,6 +60,10 @@ export class Player {
 
         this.score = 0;
         this.deathsThisLevel = 0;
+
+        // Sprite animation
+        this.anim = new AnimationState();
+        this.useSprites = true; // Set to false to fall back to canvas drawing
     }
 
     update(dt, level) {
@@ -127,6 +132,9 @@ export class Player {
                 this.resetCombo();
             }
         }
+
+        // --- Update sprite animation ---
+        this.updateAnimation(dt);
 
         this.x += this.velocityX * dt;
         this.y += this.velocityY * dt;
@@ -539,9 +547,37 @@ export class Player {
         this.resetCombo();
     }
 
+    /**
+     * Determine current animation state from player physics/state.
+     */
+    updateAnimation(dt) {
+        const sprite = getPlayerSprite();
+
+        // Determine which animation to play
+        let animName = 'idle';
+
+        if (this.wallSliding) {
+            animName = 'wallslide';
+        } else if (this.shadowDashTimer > 0) {
+            animName = 'dash';
+        } else if (!this.onGround) {
+            animName = 'jump';
+        } else if (Math.abs(this.velocityX) > 10) {
+            animName = 'run';
+        } else if (this.shootCooldown > 0.1) {
+            animName = 'shoot';
+        } else {
+            animName = 'idle';
+        }
+
+        this.anim.play(animName);
+        this.anim.update(dt, sprite);
+    }
+
     draw(ctx, camera) {
         const screenX = this.x - camera.x;
         const screenY = this.y - camera.y;
+        const sprite = getPlayerSprite();
 
         ctx.save();
 
@@ -576,7 +612,6 @@ export class Player {
                 ? screenX - 2
                 : screenX + this.width - 2;
 
-            // Animated spark effect
             const sparkPhase = (Date.now() % 200) / 200;
             for (let i = 0; i < 3; i++) {
                 const offsetY = (i * 18 + sparkPhase * 12) % 54;
@@ -590,22 +625,62 @@ export class Player {
             }
         }
 
-        ctx.shadowColor = this.shadowShift ? '#64f4ff' : '#ff2bd6';
-        ctx.shadowBlur = this.shadowShift ? 26 : 18;
+        // Invincibility flash
+        if (this.invincibleTimer > 0 && Math.floor(this.invincibleTimer * 10) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+        }
 
-        ctx.fillStyle = this.shadowShift ? '#101033' : '#111827';
-        ctx.fillRect(screenX, screenY, this.width, this.height);
+        // Draw sprite or fallback to canvas shapes
+        if (this.useSprites && sprite && sprite.loaded) {
+            // Sprite rendering — scale sprite to player hitbox
+            const drawW = this.width;
+            const drawH = this.height;
 
-        ctx.fillStyle = this.shadowShift ? '#64f4ff' : '#ff2bd6';
-        ctx.fillRect(screenX + 8, screenY + 12, 26, 10);
+            // Offset: sprite is centered in frame, we need to align feet
+            const spriteFrameW = sprite.frameWidth;
+            const spriteFrameH = sprite.frameHeight;
 
-        ctx.fillStyle = this.shadowShift ? '#b388ff' : '#21e6ff';
-        ctx.fillRect(
-            screenX + (this.facing === 1 ? 30 : 4),
-            screenY + 28,
-            10,
-            8
-        );
+            // Scale factor to fit height
+            const scale = drawH / spriteFrameH;
+            const scaledW = spriteFrameW * scale;
+            const offsetX = (drawW - scaledW) / 2;
+
+            sprite.drawFrame(
+                ctx,
+                screenX + offsetX,
+                screenY,
+                this.anim.current,
+                this.anim.frameIndex,
+                this.facing,
+                { width: scaledW, height: drawH }
+            );
+
+            // Shadow mode tint overlay
+            if (this.shadowShift) {
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = 'rgba(100, 60, 255, 0.3)';
+                ctx.fillRect(screenX + offsetX, screenY, scaledW, drawH);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        } else {
+            // Fallback: Canvas shape drawing (original)
+            ctx.shadowColor = this.shadowShift ? '#64f4ff' : '#ff2bd6';
+            ctx.shadowBlur = this.shadowShift ? 26 : 18;
+
+            ctx.fillStyle = this.shadowShift ? '#101033' : '#111827';
+            ctx.fillRect(screenX, screenY, this.width, this.height);
+
+            ctx.fillStyle = this.shadowShift ? '#64f4ff' : '#ff2bd6';
+            ctx.fillRect(screenX + 8, screenY + 12, 26, 10);
+
+            ctx.fillStyle = this.shadowShift ? '#b388ff' : '#21e6ff';
+            ctx.fillRect(
+                screenX + (this.facing === 1 ? 30 : 4),
+                screenY + 28,
+                10,
+                8
+            );
+        }
 
         ctx.restore();
     }

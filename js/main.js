@@ -91,6 +91,9 @@ import {
     abortHacking,
 } from './hackingMinigame.js';
 
+// Sprite System
+import { initPlayerSprite } from './spriteManager.js';
+
 // --- Init ---
 
 const hudBottomImage = new Image();
@@ -139,6 +142,7 @@ initTitleScreen();
 initCreditsScreen();
 initLevelFx();
 initNeonSync(); // Neon-Sync: AudioContext + AnalyserNode
+initPlayerSprite(); // Load player sprite sheet
 
 // --- Update ---
 
