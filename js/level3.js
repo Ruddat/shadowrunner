@@ -279,6 +279,8 @@ export const level3 = {
         rain: true,
         scanlines: true,
         neonDust: true,
+        sparks: true,
+        warningLights: true,
     },
 
     exit: {

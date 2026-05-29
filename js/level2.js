@@ -420,6 +420,8 @@ export const level2 = {
         rain: true,
         scanlines: true,
         neonDust: true,
+        sparks: true,
+        warningLights: false,
     },
 
     exit: {

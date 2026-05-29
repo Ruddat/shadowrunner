@@ -27,6 +27,9 @@ export function drawHud() {
     // Combo display (below mini-map)
     drawComboDisplay();
 
+    // Speedrun timer (below combo)
+    drawSpeedrunTimer();
+
     // Neon-Sync: Beat indicator dot in corner (subtle visual feedback)
     if (neonSync.isActive && neonSync.timeSinceBeat < 0.2) {
         const beatAlpha = (1 - neonSync.timeSinceBeat / 0.2) * 0.6;
@@ -547,3 +550,89 @@ function drawComboDisplay() {
 
     ctx.restore();
 }
+
+// --- Speedrun Timer ---
+
+/**
+ * Draws the speedrun timer in the top-right area below combo display.
+ * Shows elapsed time as MM:SS.ms and best time if available.
+ */
+function drawSpeedrunTimer() {
+    // Check if speedrun mode is enabled
+    try {
+        const settings = JSON.parse(localStorage.getItem('shadowrunner_settings') || '{}');
+        if (!settings.speedrunEnabled) return;
+    } catch (_) { return; }
+
+    if (!state.speedrunActive && state.gameState !== 'playing') return;
+
+    const { ctx } = state;
+    const baseX = CONFIG.width - 192;
+    const baseY = 248;
+
+    // Calculate elapsed time
+    const elapsed = state.speedrunActive
+        ? (performance.now() - state.speedrunStartTime) / 1000
+        : 0;
+
+    const timeStr = formatTime(elapsed);
+
+    ctx.save();
+
+    // Background
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.75)';
+    ctx.fillRect(baseX, baseY, 180, 28);
+
+    // Border
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(baseX, baseY, 180, 28);
+
+    // Timer icon
+    ctx.fillStyle = '#facc15';
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 4;
+    ctx.font = '700 10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('TIME', baseX + 6, baseY + 17);
+
+    // Timer value
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 14px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(timeStr, baseX + 174, baseY + 18);
+
+    // Best time indicator
+    const levelIdx = state.currentLevelIndex;
+    const bestTime = getBestTime(levelIdx);
+    if (bestTime !== null) {
+        ctx.fillStyle = '#22c55e';
+        ctx.font = '700 9px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('BEST: ' + formatTime(bestTime), baseX + 6, baseY + 38);
+    }
+
+    ctx.textAlign = 'left';
+    ctx.restore();
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + '.' + String(ms).padStart(2, '0');
+}
+
+function getBestTime(levelIndex) {
+    try {
+        const raw = localStorage.getItem('shadowrunner_speedrun');
+        if (!raw) return null;
+        const times = JSON.parse(raw);
+        return times[levelIndex] ?? null;
+    } catch (_) {
+        return null;
+    }
+}
+
+export { formatTime, getBestTime };

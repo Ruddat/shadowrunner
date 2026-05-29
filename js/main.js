@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
 import { getLevel } from './levels.js';
-import { keys } from './input.js';
+import { keys, pollGamepads, getGamepadMenuAction } from './input.js';
 import { initIntro, updateIntro, drawIntro } from './intro.js';
 import { updateParticles, drawParticles } from './particles.js';
 import {
@@ -110,6 +110,12 @@ import {
 // Sprite System
 import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 
+// Options Menu
+import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput } from './optionsMenu.js';
+
+// Speedrun timer helpers
+import { formatTime, getBestTime } from './hudSystem.js';
+
 // --- Init ---
 
 const hudBottomImage = new Image();
@@ -165,6 +171,23 @@ initEnemySprites(); // Load enemy sprite sheets
 
 function update(dt) {
     const { player, camera } = state;
+
+    // Poll gamepads every frame
+    pollGamepads();
+
+    // Options menu: freeze all updates
+    if (state.optionsOpen) {
+        updateOptionsMenu(dt);
+        const result = handleOptionsInput(dt);
+        if (result === 'back') {
+            state.optionsOpen = false;
+            if (state.optionsPreviousState) {
+                state.gameState = state.optionsPreviousState;
+                state.optionsPreviousState = null;
+            }
+        }
+        return;
+    }
 
     // Pause: freeze all updates
     if (state.paused) return;
@@ -894,6 +917,11 @@ function render() {
     if (isShopOpen()) {
         drawShop(ctx);
     }
+
+    // Options overlay (renders on top of absolutely everything)
+    if (state.optionsOpen) {
+        drawOptionsMenu(ctx);
+    }
 }
 
 // --- Debug weapon switching ---
@@ -935,23 +963,34 @@ window.addEventListener('keydown', (e) => {
     if (state.gameState === 'title') {
         const action = handleTitleKey(e.code);
 
-        if (action === 'CREDITS') {
+        // Also handle gamepad menu navigation
+        const gpAction = getGamepadMenuAction();
+
+        const finalAction = action || gpAction;
+
+        if (finalAction === 'CREDITS') {
             initCreditsScreen();
             stopMusic();
             playMusic('credits');
             state.gameState = 'credits';
         }
 
-        if (action === 'NEW GAME') {
+        if (finalAction === 'NEW GAME') {
             stopMusic();
             startNewGame();
         }
 
-        if (action === 'CONTINUE') {
+        if (finalAction === 'CONTINUE') {
             continueFromSave();
         }
 
-        if (action === 'EXIT') {
+        if (finalAction === 'OPTIONS') {
+            initOptionsMenu();
+            state.optionsPreviousState = 'title';
+            state.optionsOpen = true;
+        }
+
+        if (finalAction === 'EXIT') {
             state.gameState = 'intro';
             return;
         }
@@ -1024,8 +1063,17 @@ window.addEventListener('keydown', (e) => {
 
     // Unpause: any key while paused
     if (state.paused) {
-        if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Enter' || e.code === 'Space') {
+        if (e.code === 'Escape' || e.code === 'KeyP') {
             togglePause();
+            return;
+        }
+        // Open options from pause menu
+        if (e.code === 'KeyO' || e.code === 'Enter' || e.code === 'Space') {
+            if (!state.optionsOpen) {
+                initOptionsMenu();
+                state.optionsPreviousState = state.pausePreviousState ?? 'playing';
+                state.optionsOpen = true;
+            }
             return;
         }
     }
@@ -1185,6 +1233,10 @@ function drawPauseOverlay() {
     ctx.fillStyle = 'rgba(34, 197, 94, 0.6)';
     ctx.font = '700 13px monospace';
     ctx.fillText('Game Saved', CONFIG.width / 2, CONFIG.height / 2 + 50);
+
+    ctx.fillStyle = 'rgba(33, 230, 255, 0.6)';
+    ctx.font = '700 13px monospace';
+    ctx.fillText('ENTER / SPACE for Options', CONFIG.width / 2, CONFIG.height / 2 + 76);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.font = '700 12px monospace';

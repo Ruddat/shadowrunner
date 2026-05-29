@@ -121,6 +121,24 @@ export function loadNextLevel() {
     player.deathsThisLevel = 0;
     state.levelStats = createLevelStats(state.currentLevel);
     resetShopPurchases();
+
+    // Save speedrun best time for previous level
+    if (state.speedrunActive) {
+        const levelTime = (performance.now() - state.speedrunStartTime) / 1000;
+        const levelIdx = state.currentLevelIndex - 1;
+        try {
+            const raw = localStorage.getItem('shadowrunner_speedrun');
+            const times = raw ? JSON.parse(raw) : {};
+            const currentBest = times[levelIdx];
+            if (currentBest === undefined || levelTime < currentBest) {
+                times[levelIdx] = levelTime;
+                localStorage.setItem('shadowrunner_speedrun', JSON.stringify(times));
+            }
+        } catch (_) {}
+        state.speedrunLevelTimes.push({ level: levelIdx, time: levelTime });
+        // Reset timer for next level
+        state.speedrunStartTime = performance.now();
+    }
 }
 
 /**
@@ -186,6 +204,11 @@ export function startNewGame() {
 
     playMusic(state.currentLevel.music ?? 'level1');
     state.gameState = 'playing';
+
+    // Start speedrun timer
+    state.speedrunStartTime = performance.now();
+    state.speedrunActive = true;
+    state.speedrunLevelTimes = [];
 }
 
 export function retryCurrentLevel() {

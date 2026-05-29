@@ -46,4 +46,13 @@ export const state = {
 
     // Shop state
     shopOpen: false,
+
+    // Speedrun timer
+    speedrunStartTime: 0,
+    speedrunActive: false,
+    speedrunLevelTimes: [], // Array of { level, time }
+
+    // Options menu state
+    optionsOpen: false,
+    optionsPreviousState: null,
 };

@@ -1,4 +1,5 @@
 import { connectAudioElement, resumeNeonSync } from './neonSync.js';
+import { saveSettings, loadSettings } from './saveSystem.js';
 
 const tracks = {};
 const sounds = {};
@@ -10,10 +11,17 @@ let masterVolume = 0.75;
 let musicVolume = 0.65;
 let sfxVolume = 0.85;
 
+// Load saved settings on startup
+const saved = loadSettings();
+if (saved) {
+    if (saved.masterVolume !== undefined) masterVolume = saved.masterVolume;
+    if (saved.musicVolume !== undefined) musicVolume = saved.musicVolume;
+    if (saved.sfxVolume !== undefined) sfxVolume = saved.sfxVolume;
+    if (saved.muted !== undefined) muted = saved.muted;
+}
+
 export function registerMusic(name, src, loop = true) {
     const audio = new Audio();
-    // Only set crossOrigin for cross-origin URLs (CDN etc.)
-    // Same-origin files don't need it and it can break file:// and some servers
     if (src.startsWith('http://') || src.startsWith('https://')) {
         try { new URL(src); audio.crossOrigin = 'anonymous'; } catch (_) { /* relative URL, skip */ }
     }
@@ -46,10 +54,7 @@ export function playMusic(name) {
     currentMusicName = name;
     currentMusic.volume = masterVolume * musicVolume;
 
-    // Ensure AudioContext is running (browser autoplay policy)
     resumeNeonSync();
-
-    // Connect this audio element to neonSync analyser
     connectAudioElement(currentMusic);
 
     currentMusic.play().catch(() => {
@@ -88,25 +93,58 @@ export function toggleMuted() {
     return muted;
 }
 
+// --- Volume Controls ---
+
 export function setMasterVolume(value) {
     masterVolume = Math.max(0, Math.min(1, value));
 
     if (currentMusic) {
         currentMusic.volume = masterVolume * musicVolume;
     }
+
+    // Update all registered sounds base volume
+    for (const name in sounds) {
+        sounds[name].volume = masterVolume * sfxVolume;
+    }
 }
 
+export function setMusicVolume(value) {
+    musicVolume = Math.max(0, Math.min(1, value));
+
+    if (currentMusic) {
+        currentMusic.volume = masterVolume * musicVolume;
+    }
+}
+
+export function setSfxVolume(value) {
+    sfxVolume = Math.max(0, Math.min(1, value));
+
+    for (const name in sounds) {
+        sounds[name].volume = masterVolume * sfxVolume;
+    }
+}
+
+export function getMasterVolume() { return masterVolume; }
+export function getMusicVolume() { return musicVolume; }
+export function getSfxVolume() { return sfxVolume; }
+export function isMuted() { return muted; }
+
 /**
- * Get the currently playing audio element.
- * Used by neonSync to connect to the analyser.
+ * Persist current volume/mute settings to localStorage.
  */
+export function persistSettings() {
+    saveSettings({
+        masterVolume,
+        musicVolume,
+        sfxVolume,
+        muted,
+    });
+}
+
 export function getCurrentAudioElement() {
     return currentMusic;
 }
 
-/**
- * Get the name of the currently playing music track.
- */
 export function getCurrentMusicName() {
     return currentMusicName;
 }
