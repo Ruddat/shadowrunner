@@ -64,12 +64,21 @@ function toggleFullscreen(v) {
     }
     const canvas = document.getElementById('game');
     if (v && !document.fullscreenElement) {
-        const target = canvas.requestFullscreen ? canvas :
-                       canvas.webkitRequestFullscreen ? canvas :
-                       document.documentElement;
-        (target.requestFullscreen || target.webkitRequestFullscreen)?.().catch(() => {});
+        // IMPORTANT: Must call method with proper this-binding!
+        // (canvas.requestFullscreen || canvas.webkitRequestFullscreen)() would lose this.
+        if (canvas.requestFullscreen) {
+            canvas.requestFullscreen().catch(() => {});
+        } else if (canvas.webkitRequestFullscreen) {
+            canvas.webkitRequestFullscreen();
+        } else if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
     } else if (!v && document.fullscreenElement) {
-        (document.exitFullscreen || document.webkitExitFullscreen)?.().catch(() => {});
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
     }
 }
 

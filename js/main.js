@@ -969,10 +969,22 @@ window.addEventListener('keydown', (e) => {
         const toggleKeys = ['ArrowLeft', 'ArrowRight', 'Space', 'Enter', 'KeyE', 'KeyF', 'KeyW', 'KeyA', 'KeyD'];
         if (toggleKeys.includes(e.code)) {
             const canvas = document.getElementById('game');
+            // IMPORTANT: Must call with proper this-binding!
+            // (canvas.requestFullscreen || canvas.webkitRequestFullscreen)() loses this -> Illegal invocation
             if (!document.fullscreenElement) {
-                (canvas.requestFullscreen || canvas.webkitRequestFullscreen)?.().catch(() => {});
+                if (canvas.requestFullscreen) {
+                    canvas.requestFullscreen().catch(() => {});
+                } else if (canvas.webkitRequestFullscreen) {
+                    canvas.webkitRequestFullscreen();
+                } else if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
             } else {
-                (document.exitFullscreen || document.webkitExitFullscreen)?.().catch(() => {});
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
             }
             markFullscreenHandled(); // tell rAF handler to skip its own call
         }
