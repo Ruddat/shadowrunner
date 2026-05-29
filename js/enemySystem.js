@@ -105,7 +105,9 @@ function updateEnemyGravity(enemy, dt, level) {
     // Resolve platform collisions (uses all current platforms including shadow platforms)
     enemy.onGround = false;
     const platforms = level.platforms || [];
+    const shadowPlatforms = level.shadowPlatforms || [];
 
+    // Check regular platforms
     for (const platform of platforms) {
         if (!rectsOverlap(enemy, platform)) continue;
 
@@ -116,6 +118,27 @@ function updateEnemyGravity(enemy, dt, level) {
         if (
             enemy.velocityY >= 0 &&
             previousBottom <= platform.y + 8 &&  // small tolerance for edge cases
+            currentBottom >= platform.y
+        ) {
+            enemy.y = platform.y - enemy.height;
+            enemy.velocityY = 0;
+            enemy.onGround = true;
+        }
+    }
+
+    // Check shadow platforms (enemies can stand on them when they are visible)
+    // Shadow platforms exist in the level data, so enemies should collide with them
+    // regardless of player shadow state - the platforms are solid geometry for enemies
+    for (const platform of shadowPlatforms) {
+        if (!rectsOverlap(enemy, platform)) continue;
+
+        const previousBottom = enemy.prevY + enemy.height;
+        const currentBottom = enemy.y + enemy.height;
+
+        // Only land on top of platforms (falling down onto them)
+        if (
+            enemy.velocityY >= 0 &&
+            previousBottom <= platform.y + 8 &&
             currentBottom >= platform.y
         ) {
             enemy.y = platform.y - enemy.height;

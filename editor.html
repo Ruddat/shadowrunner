@@ -59,15 +59,34 @@
             <label class="check"><input type="checkbox" id="fxSparks"> Funken</label>
             <label class="check"><input type="checkbox" id="fxWarningLights"> Warnlichter</label>
 
+            <h2>Layer-Sichtbarkeit</h2>
+            <div class="layer-toggles" id="layerToggles">
+                <label class="check layer-check"><input type="checkbox" data-layer="platforms" checked> <span class="layer-dot" style="background:#64f4ff"></span> Plattformen</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="shadowPlatforms" checked> <span class="layer-dot" style="background:#b388ff"></span> Shadow-Plattf.</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="gems" checked> <span class="layer-dot" style="background:#ffd166"></span> Gems</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="bonusBlocks" checked> <span class="layer-dot" style="background:#ff3fd5"></span> Bonusblöcke</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="enemies" checked> <span class="layer-dot" style="background:#ff4d6d"></span> Gegner</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="hackTerminals" checked> <span class="layer-dot" style="background:#ff6600"></span> Hack-Terminals</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="checkpoints" checked> <span class="layer-dot" style="background:#22c55e"></span> Checkpoints</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="keys" checked> <span class="layer-dot" style="background:#facc15"></span> Schlüssel</label>
+            </div>
+
             <h2>Aktionen</h2>
+            <div class="action-row">
+                <button id="undoBtn" class="undo-btn" title="Rückgängig (Strg+Z)">↩ Undo</button>
+                <button id="redoBtn" class="undo-btn" title="Wiederholen (Strg+Y)">↪ Redo</button>
+            </div>
+            <div class="action-row">
+                <button id="duplicateBtn" class="action-btn" title="Auswahl duplizieren (Strg+D)">⧉ Duplikat</button>
+                <button id="deleteBtn" class="danger" title="Auswahl löschen (Entf)">🗑 Löschen</button>
+            </div>
+            <button id="validateBtn" class="validate-btn" title="Level auf Probleme prüfen">✓ Level prüfen</button>
             <button id="exportBtn" class="primary">Export erzeugen</button>
             <button id="copyBtn">Export kopieren</button>
             <button id="saveBtn">Lokal speichern</button>
             <button id="loadBtn">Lokal laden</button>
-            <button id="undoBtn" class="undo-btn">↩ Rückgängig (Strg+Z)</button>
-            <button id="redoBtn" class="undo-btn">↪ Wiederholen (Strg+Y)</button>
-            <button id="deleteBtn" class="danger">Auswahl löschen (Entf)</button>
             <button id="resetBtn" class="danger">Editor leeren</button>
+            <p class="autosave-hint" id="autosaveHint"></p>
         </aside>
 
         <section class="stage-panel">
@@ -75,10 +94,19 @@
                 <strong id="currentToolLabel">Auswählen</strong>
                 <span id="selectedLabel">keine Auswahl</span>
                 <span id="mouseInfo">x: 0 · y: 0 · cam: 0</span>
+                <div class="zoom-controls">
+                    <button id="zoomOutBtn" title="Verkleinern">−</button>
+                    <span id="zoomLevel">100%</span>
+                    <button id="zoomInBtn" title="Vergrößern">+</button>
+                    <button id="zoomResetBtn" title="Zoom zurücksetzen">1:1</button>
+                </div>
             </header>
-            <canvas id="editorCanvas" width="960" height="540"></canvas>
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="editorCanvas" width="960" height="540"></canvas>
+                <canvas id="minimapCanvas" width="240" height="68"></canvas>
+            </div>
             <footer>
-                Mausrad: Kamera · Entf: löschen · Pfeiltasten: bewegen · Shift+Drag: Plattform zeichnen · Strg+Z/Y: Undo/Redo
+                <span>Mausrad: Kamera · Strg+Mausrad: Zoom · Entf: löschen · Pfeiltasten: bewegen · Shift+Drag: Plattform · Strg+Z/Y: Undo/Redo · Strg+C/V: Kopieren/Einfügen · Strg+D: Duplikat</span>
                 <span id="counts">0 Objekte</span>
             </footer>
         </section>
@@ -87,6 +115,17 @@
             <h2>Auswahl</h2>
             <div id="selectionFields"></div>
             <p id="selectionHint">Wähle ein Objekt aus, um Werte exakt zu bearbeiten.</p>
+
+            <h2>Objekt-Liste <span class="obj-count" id="objListCount"></span></h2>
+            <div class="obj-list-filter">
+                <input id="objListFilter" type="text" placeholder="Filter...">
+            </div>
+            <div class="obj-list" id="objList"></div>
+
+            <h2>Validierung</h2>
+            <div class="validation-results" id="validationResults">
+                <p class="hint">Klicke "Level prüfen" um Probleme zu finden.</p>
+            </div>
 
             <h2>Import</h2>
             <textarea id="importText" placeholder="export const level5 = { ... };"></textarea>

@@ -1,10 +1,15 @@
 const canvas = document.getElementById('editorCanvas');
 const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const minimapCtx = minimapCanvas.getContext('2d');
 
 // --- State ---
 const state = {
     tool: 'select',
     cameraX: 0,
+    zoom: 1,
+    minZoom: 0.25,
+    maxZoom: 3,
     mouse: { x: 0, y: 0, worldX: 0, worldY: 0 },
     dragging: false,
     drawing: false,
@@ -16,6 +21,19 @@ const state = {
     redoStack: [],
     maxUndo: 50,
     currentEnemyType: 'walker',
+    clipboard: null,
+    layerVisibility: {
+        platforms: true,
+        shadowPlatforms: true,
+        gems: true,
+        bonusBlocks: true,
+        enemies: true,
+        hackTerminals: true,
+        checkpoints: true,
+        keys: true,
+    },
+    autoSaveInterval: null,
+    lastAutoSave: null,
 };
 
 const COLORS = {
@@ -90,7 +108,10 @@ function screenToWorld(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const sx = (clientX - rect.left) * (canvas.width / rect.width);
     const sy = (clientY - rect.top) * (canvas.height / rect.height);
-    return { x: snap(sx + state.cameraX), y: snap(sy), sx, sy };
+    // Apply inverse zoom + camera to get world coordinates
+    const worldX = (sx / state.zoom) + state.cameraX;
+    const worldY = (sy / state.zoom);
+    return { x: snap(worldX), y: snap(worldY), sx, sy };
 }
 
 function setTool(tool) {
@@ -133,6 +154,19 @@ function getEnemyColor(type) {
     }[type] || COLORS.enemy;
 }
 
+// --- Zoom ---
+
+function setZoom(newZoom) {
+    state.zoom = Math.max(state.minZoom, Math.min(state.maxZoom, newZoom));
+    $('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+    applyZoomTransform();
+}
+
+function applyZoomTransform() {
+    canvas.style.transform = `scale(${state.zoom})`;
+    canvas.style.transformOrigin = '0 0';
+}
+
 // --- Undo/Redo ---
 
 function saveUndoState() {
@@ -162,6 +196,60 @@ function redo() {
     state.selected = null;
     syncFormFromLevel();
     updatePanels();
+}
+
+// --- Copy/Paste/Duplicate ---
+
+function copySelected() {
+    if (!state.selected) return;
+    const { group, item } = state.selected;
+    state.clipboard = {
+        group,
+        data: JSON.parse(JSON.stringify(item)),
+    };
+    showNotification('Kopiert!');
+}
+
+function pasteClipboard() {
+    if (!state.clipboard) return;
+    const { group, data } = state.clipboard;
+    const offset = grid();
+
+    if (group === 'spawn' || group === 'exit') {
+        // For spawn/exit, just move them
+        saveUndoState();
+        if (group === 'spawn') {
+            state.level.spawn = { x: data.x + offset, y: data.y + offset };
+            selectObject('spawn', state.level.spawn);
+        } else {
+            state.level.exit = { ...data, x: data.x + offset, y: data.y + offset };
+            selectObject('exit', state.level.exit);
+        }
+    } else if (Array.isArray(state.level[group])) {
+        saveUndoState();
+        const pasted = JSON.parse(JSON.stringify(data));
+        pasted.x += offset;
+        pasted.y += offset;
+
+        // Shift patrol range for enemies
+        if (group === 'enemies') {
+            pasted.minX += offset;
+            pasted.maxX += offset;
+        }
+
+        state.level[group].push(pasted);
+        selectObject(group, pasted);
+    }
+
+    updatePanels();
+    showNotification('Eingefügt!');
+}
+
+function duplicateSelected() {
+    if (!state.selected) return;
+    // Copy then paste
+    copySelected();
+    pasteClipboard();
 }
 
 // --- Sync ---
@@ -293,7 +381,7 @@ function createEnemyByType(type, x, y) {
             return {
                 ...base,
                 type: 'drone',
-                y: y - 100,  // drones float higher
+                y: y - 100,
                 width: 38,
                 height: 38,
                 speed: 65,
@@ -362,7 +450,7 @@ function createEnemyByType(type, x, y) {
                 projectileSpeed: 380,
                 projectileColor: '#22d3ee',
             };
-        default: // walker
+        default:
             return {
                 ...base,
                 canShoot: false,
@@ -373,6 +461,7 @@ function createEnemyByType(type, x, y) {
 function selectObject(group, item) {
     state.selected = { group, item };
     updateSelectionPanel();
+    updateObjectList();
 }
 
 // --- Hit testing ---
@@ -462,7 +551,6 @@ function updateSelectionPanel() {
     }
 
     const fields = Object.keys(item).filter((key) => {
-        // Skip internal/editor-only fields
         if (key.startsWith('_')) return false;
         if (typeof item[key] === 'object' && !Array.isArray(item[key])) return false;
         return true;
@@ -477,7 +565,6 @@ function updateSelectionPanel() {
 
         let input;
 
-        // Special dropdown for hackTerminal fields
         if (group === 'hackTerminals' && key === 'difficulty') {
             input = document.createElement('select');
             input.innerHTML = '<option value="easy">easy</option><option value="medium">medium</option><option value="hard">hard</option>';
@@ -535,7 +622,6 @@ function addEnemyTypeSelector(wrap, item) {
         const y = item.y;
         const newEnemy = createEnemyByType(newType, x, y);
 
-        // Preserve some custom values if they were edited
         newEnemy.health = item.health;
         newEnemy.speed = item.speed;
         newEnemy.minX = item.minX;
@@ -543,7 +629,6 @@ function addEnemyTypeSelector(wrap, item) {
         if (item.canShoot !== undefined) newEnemy.canShoot = item.canShoot;
         if (item.shadowOnly !== undefined) newEnemy.shadowOnly = item.shadowOnly;
 
-        // Replace in array
         const enemies = state.level.enemies;
         const idx = enemies.indexOf(item);
         if (idx >= 0) {
@@ -559,7 +644,6 @@ function addEnemyTypeSelector(wrap, item) {
 }
 
 function addExitFields(wrap, item) {
-    // unlockMode
     const modeLabel = document.createElement('label');
     const modeName = document.createElement('span');
     modeName.className = 'field-name';
@@ -586,7 +670,6 @@ function addExitFields(wrap, item) {
     modeLabel.appendChild(modeInput);
     wrap.appendChild(modeLabel);
 
-    // keysRequired
     const keysLabel = document.createElement('label');
     const keysName = document.createElement('span');
     keysName.className = 'field-name';
@@ -627,7 +710,198 @@ function updatePanels(refreshSelection = true) {
         2, // spawn + exit
     ].reduce((a, b) => a + b, 0);
     $('counts').textContent = `${counts} Objekte`;
-    $('mouseInfo').textContent = `x: ${state.mouse.worldX} · y: ${state.mouse.worldY} · cam: ${Math.round(state.cameraX)}`;
+    $('mouseInfo').textContent = `x: ${state.mouse.worldX} · y: ${state.mouse.worldY} · cam: ${Math.round(state.cameraX)} · zoom: ${Math.round(state.zoom * 100)}%`;
+
+    updateObjectList();
+}
+
+// --- Object List ---
+
+function updateObjectList() {
+    const container = $('objList');
+    if (!container) return;
+
+    const filter = ($('objListFilter')?.value || '').toLowerCase();
+    container.innerHTML = '';
+
+    const items = [];
+
+    // Collect all objects with their groups
+    state.level.platforms.forEach((item, i) => items.push({ group: 'platforms', item, label: `Plattform ${i + 1}`, color: COLORS.platform, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.shadowPlatforms || []).forEach((item, i) => items.push({ group: 'shadowPlatforms', item, label: `Shadow ${i + 1}`, color: COLORS.shadowPlatform, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    state.level.gems.forEach((item, i) => items.push({ group: 'gems', item, label: `Gem ${i + 1}`, color: COLORS.gem, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    state.level.bonusBlocks.forEach((item, i) => items.push({ group: 'bonusBlocks', item, label: `Bonus ${i + 1}`, color: COLORS.bonusBlock, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    state.level.enemies.forEach((item, i) => {
+        const type = item.type || 'walker';
+        items.push({ group: 'enemies', item, label: `${type} ${i + 1}`, color: getEnemyColor(type), pos: `${Math.round(item.x)},${Math.round(item.y)}` });
+    });
+    (state.level.hackTerminals || []).forEach((item, i) => items.push({ group: 'hackTerminals', item, label: `Hack ${i + 1}`, color: COLORS.hackTerminal, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.checkpoints || []).forEach((item, i) => items.push({ group: 'checkpoints', item, label: `CP ${i + 1}`, color: COLORS.checkpoint, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.keys || []).forEach((item, i) => items.push({ group: 'keys', item, label: `Schlüssel ${i + 1}`, color: COLORS.key, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    items.push({ group: 'spawn', item: state.level.spawn, label: 'Spawn', color: COLORS.spawn, pos: `${Math.round(state.level.spawn.x)},${Math.round(state.level.spawn.y)}` });
+    items.push({ group: 'exit', item: state.level.exit, label: 'Exit', color: COLORS.exit, pos: `${Math.round(state.level.exit.x)},${Math.round(state.level.exit.y)}` });
+
+    $('objListCount').textContent = `(${items.length})`;
+
+    const filtered = filter
+        ? items.filter(it => it.label.toLowerCase().includes(filter) || it.group.toLowerCase().includes(filter))
+        : items;
+
+    for (const entry of filtered) {
+        const div = document.createElement('div');
+        div.className = 'obj-list-item';
+        if (state.selected && state.selected.item === entry.item) {
+            div.classList.add('selected');
+        }
+
+        div.innerHTML = `<span class="item-dot" style="background:${entry.color}"></span><span class="item-label">${entry.label}</span><span class="item-pos">${entry.pos}</span>`;
+
+        div.addEventListener('click', () => {
+            selectObject(entry.group, entry.item);
+            // Center camera on object
+            const item = entry.item;
+            const itemCenterX = (item.x + (item.width ? item.width / 2 : 0));
+            state.cameraX = Math.max(0, Math.min(levelWidth() - canvas.width / state.zoom, itemCenterX - (canvas.width / state.zoom) / 2));
+        });
+
+        container.appendChild(div);
+    }
+}
+
+// --- Level Validation ---
+
+function validateLevel() {
+    const results = [];
+    const level = state.level;
+
+    // Check spawn is on or near a platform
+    const spawnOnPlatform = level.platforms.some(p =>
+        level.spawn.x >= p.x && level.spawn.x <= p.x + p.width &&
+        Math.abs((level.spawn.y + 70) - p.y) < 20
+    );
+    if (!spawnOnPlatform) {
+        results.push({ type: 'warn', msg: 'Spawn ist nicht auf einer Plattform – Spieler fällt!' });
+    }
+
+    // Check exit is reachable (near a platform)
+    const exitOnPlatform = level.platforms.some(p =>
+        level.exit.x >= p.x - 40 && level.exit.x <= p.x + p.width + 40 &&
+        Math.abs(level.exit.y - p.y) < 160
+    );
+    if (!exitOnPlatform) {
+        results.push({ type: 'error', msg: 'Exit ist nicht erreichbar – keine Plattform in der Nähe!' });
+    }
+
+    // Check at least 1 platform
+    if (level.platforms.length === 0) {
+        results.push({ type: 'error', msg: 'Keine Plattformen im Level!' });
+    }
+
+    // Check for very short platforms (< 50px)
+    level.platforms.forEach((p, i) => {
+        if (p.width < 50) results.push({ type: 'warn', msg: `Plattform ${i + 1} ist sehr schmal (${p.width}px)` });
+    });
+
+    // Check enemies are on/near platforms
+    level.enemies.forEach((e, i) => {
+        const type = e.type || 'walker';
+        if (type !== 'drone') {
+            const nearPlatform = level.platforms.some(p =>
+                e.x >= p.x - 20 && e.x <= p.x + p.width + 20 &&
+                Math.abs((e.y + e.height) - p.y) < 30
+            );
+            if (!nearPlatform) {
+                results.push({ type: 'warn', msg: `${type} ${i + 1} schwebt in der Luft – wird durch Gravitation fallen!` });
+            }
+        }
+    });
+
+    // Check patrol range makes sense
+    level.enemies.forEach((e, i) => {
+        if (e.minX >= e.maxX) {
+            results.push({ type: 'warn', msg: `Gegner ${i + 1}: minX >= maxX (Patrouille kaputt)` });
+        }
+    });
+
+    // Check for overlapping platforms
+    for (let i = 0; i < level.platforms.length; i++) {
+        for (let j = i + 1; j < level.platforms.length; j++) {
+            const a = level.platforms[i];
+            const b = level.platforms[j];
+            if (a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y) {
+                results.push({ type: 'warn', msg: `Plattformen ${i + 1} und ${j + 1} überlappen sich` });
+            }
+        }
+    }
+
+    // Check level width vs exit position
+    if (level.exit.x > levelWidth()) {
+        results.push({ type: 'error', msg: `Exit ist außerhalb der Level-Breite (${level.exit.x} > ${levelWidth()})` });
+    }
+
+    // Check for keys if exit requires them
+    if (level.exit.keysRequired > 0 && (!level.keys || level.keys.length < level.exit.keysRequired)) {
+        results.push({ type: 'error', msg: `Exit braucht ${level.exit.keysRequired} Schlüssel, aber nur ${level.keys?.length || 0} vorhanden!` });
+    }
+
+    // Check for gems if exit requires them
+    if (level.exit.unlockMode === 'allGems' && level.gems.length === 0) {
+        results.push({ type: 'warn', msg: 'Exit braucht alle Gems, aber es gibt keine Gems!' });
+    }
+
+    // No enemies for unlockMode allEnemies
+    if (level.exit.unlockMode === 'allEnemies' && level.enemies.length === 0) {
+        results.push({ type: 'warn', msg: 'Exit braucht alle Gegner besiegt, aber es gibt keine Gegner – Exit bleibt offen!' });
+    }
+
+    // Check shadow-only enemies
+    const shadowEnemies = level.enemies.filter(e => e.shadowOnly);
+    if (shadowEnemies.length > 0 && !level.shadowPlatforms?.length) {
+        results.push({ type: 'warn', msg: `${shadowEnemies.length} Shadow-Gegner, aber keine Shadow-Plattformen` });
+    }
+
+    // If no issues
+    if (results.length === 0) {
+        results.push({ type: 'ok', msg: 'Level sieht gut aus! Keine Probleme gefunden.' });
+    }
+
+    return results;
+}
+
+function displayValidation(results) {
+    const container = $('validationResults');
+    container.innerHTML = '';
+
+    for (const result of results) {
+        const p = document.createElement('p');
+        if (result.type === 'ok') {
+            p.className = 'val-ok';
+            p.textContent = `✓ ${result.msg}`;
+        } else if (result.type === 'warn') {
+            p.className = 'val-warn';
+            p.innerHTML = `<span class="val-icon">⚠</span> ${result.msg}`;
+        } else {
+            p.className = 'val-error';
+            p.innerHTML = `<span class="val-icon">✕</span> ${result.msg}`;
+        }
+        container.appendChild(p);
+    }
+}
+
+// --- Auto-Save ---
+
+function startAutoSave() {
+    if (state.autoSaveInterval) clearInterval(state.autoSaveInterval);
+    state.autoSaveInterval = setInterval(() => {
+        syncLevelFromForm();
+        try {
+            localStorage.setItem('shadowrunner-level-editor', JSON.stringify(state.level));
+            state.lastAutoSave = new Date();
+            $('autosaveHint').textContent = `Auto-Save: ${state.lastAutoSave.toLocaleTimeString()}`;
+        } catch (e) {
+            // Silently fail
+        }
+    }, 30000); // 30 seconds
 }
 
 // --- Drawing ---
@@ -637,18 +911,23 @@ function drawGrid() {
     ctx.strokeStyle = 'rgba(100,244,255,.08)';
     ctx.lineWidth = 1;
 
-    const startX = -state.cameraX % g;
-    for (let x = startX; x < canvas.width; x += g) {
+    const viewLeft = state.cameraX;
+    const viewRight = state.cameraX + canvas.width / state.zoom;
+    const viewTop = 0;
+    const viewBottom = canvas.height / state.zoom;
+
+    const startX = -(viewLeft % g);
+    for (let x = startX; x < viewRight - viewLeft; x += g) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.lineTo(x, canvas.height / state.zoom);
         ctx.stroke();
     }
 
-    for (let y = 0; y < canvas.height; y += g) {
+    for (let y = 0; y < canvas.height / state.zoom; y += g) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(canvas.width / state.zoom, y);
         ctx.stroke();
     }
 }
@@ -688,7 +967,6 @@ function drawKeyItem(item) {
     ctx.fillRect(x, item.y, w, h);
     ctx.strokeRect(x, item.y, w, h);
 
-    // K symbol
     ctx.fillStyle = '#050510';
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
@@ -778,7 +1056,6 @@ function drawEnemyOnCanvas(item) {
     ctx.fillRect(x, item.y, item.width, item.height);
     ctx.strokeRect(x, item.y, item.width, item.height);
 
-    // Enemy type label
     const typeLabels = {
         walker: 'W',
         drone: 'D',
@@ -793,7 +1070,6 @@ function drawEnemyOnCanvas(item) {
     ctx.fillText(typeLabels[type] || '?', x + item.width / 2, item.y + item.height / 2 + 5);
     ctx.textAlign = 'left';
 
-    // HP label
     ctx.fillStyle = '#eef8ff';
     ctx.font = '10px monospace';
     ctx.fillText(`hp:${item.health}`, x + 2, item.y - 4);
@@ -809,13 +1085,11 @@ function drawEnemyOnCanvas(item) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Patrol endpoints
         ctx.fillStyle = color + '88';
         ctx.fillRect(item.minX - state.cameraX - 2, item.y + item.height + 4, 4, 8);
         ctx.fillRect(item.maxX - state.cameraX - 2, item.y + item.height + 4, 4, 8);
     }
 
-    // Shoot indicator
     if (item.canShoot) {
         ctx.fillStyle = '#ff003c';
         ctx.beginPath();
@@ -823,7 +1097,6 @@ function drawEnemyOnCanvas(item) {
         ctx.fill();
     }
 
-    // Shield HP indicator
     if (type === 'shield' && item.shieldHP) {
         ctx.fillStyle = '#60a5fa';
         ctx.font = '9px monospace';
@@ -873,43 +1146,127 @@ function drawDrawingPreview() {
     ctx.fillText(`${w}x${h}`, startX - state.cameraX + 4, startY + 14);
 }
 
+// --- Minimap ---
+
+function drawMinimap() {
+    const mCtx = minimapCtx;
+    const mW = minimapCanvas.width;
+    const mH = minimapCanvas.height;
+    const lw = levelWidth();
+
+    mCtx.clearRect(0, 0, mW, mH);
+
+    // Background
+    mCtx.fillStyle = 'rgba(5,5,16,0.95)';
+    mCtx.fillRect(0, 0, mW, mH);
+
+    const scaleX = mW / lw;
+    const scaleY = mH / canvas.height;
+
+    // Platforms
+    mCtx.fillStyle = COLORS.platform + '88';
+    for (const p of state.level.platforms) {
+        mCtx.fillRect(p.x * scaleX, p.y * scaleY, Math.max(1, p.width * scaleX), Math.max(1, p.height * scaleY));
+    }
+
+    // Shadow platforms
+    if (state.layerVisibility.shadowPlatforms) {
+        mCtx.fillStyle = COLORS.shadowPlatform + '66';
+        for (const p of (state.level.shadowPlatforms || [])) {
+            mCtx.fillRect(p.x * scaleX, p.y * scaleY, Math.max(1, p.width * scaleX), Math.max(1, p.height * scaleY));
+        }
+    }
+
+    // Enemies
+    mCtx.fillStyle = COLORS.enemy + '88';
+    for (const e of state.level.enemies) {
+        mCtx.fillRect(e.x * scaleX, e.y * scaleY, Math.max(2, e.width * scaleX), Math.max(2, e.height * scaleY));
+    }
+
+    // Spawn
+    mCtx.fillStyle = COLORS.spawn;
+    mCtx.fillRect(state.level.spawn.x * scaleX - 2, state.level.spawn.y * scaleY - 2, 4, 4);
+
+    // Exit
+    mCtx.fillStyle = COLORS.exit;
+    mCtx.fillRect(state.level.exit.x * scaleX, state.level.exit.y * scaleY, Math.max(3, state.level.exit.width * scaleX), Math.max(3, state.level.exit.height * scaleY));
+
+    // Viewport indicator
+    const vpLeft = state.cameraX * scaleX;
+    const vpWidth = (canvas.width / state.zoom) * scaleX;
+    mCtx.strokeStyle = '#ffffff55';
+    mCtx.lineWidth = 1;
+    mCtx.strokeRect(vpLeft, 0, vpWidth, mH);
+
+    // Selected object highlight
+    if (state.selected) {
+        const item = state.selected.item;
+        mCtx.strokeStyle = '#ffffff';
+        mCtx.lineWidth = 1;
+        const sx = item.x * scaleX;
+        const sy = item.y * scaleY;
+        const sw = Math.max(3, (item.width || 20) * scaleX);
+        const sh = Math.max(3, (item.height || 20) * scaleY);
+        mCtx.strokeRect(sx - 1, sy - 1, sw + 2, sh + 2);
+    }
+}
+
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.scale(state.zoom, state.zoom);
+
     drawGrid();
 
     // Level background area
     ctx.fillStyle = 'rgba(255,255,255,.05)';
-    ctx.fillRect(-state.cameraX, 0, levelWidth(), canvas.height);
+    ctx.fillRect(-state.cameraX, 0, levelWidth(), canvas.height / state.zoom);
 
-    // Draw all object types
-    state.level.platforms.forEach((item) => rectWorld(item, COLORS.platform, 'platform'));
+    // Draw all object types (respecting layer visibility)
+    if (state.layerVisibility.platforms) {
+        state.level.platforms.forEach((item) => rectWorld(item, COLORS.platform, 'platform'));
+    }
 
-    if (state.level.shadowPlatforms) {
+    if (state.layerVisibility.shadowPlatforms && state.level.shadowPlatforms) {
         state.level.shadowPlatforms.forEach((item) => rectWorld(item, COLORS.shadowPlatform, 'shadow'));
     }
 
-    state.level.bonusBlocks.forEach((item) => rectWorld(item, COLORS.bonusBlock, item.reward || 'bonus'));
+    if (state.layerVisibility.bonusBlocks) {
+        state.level.bonusBlocks.forEach((item) => rectWorld(item, COLORS.bonusBlock, item.reward || 'bonus'));
+    }
 
-    state.level.enemies.forEach((item) => drawEnemyOnCanvas(item));
+    if (state.layerVisibility.enemies) {
+        state.level.enemies.forEach((item) => drawEnemyOnCanvas(item));
+    }
 
-    if (state.level.hackTerminals) {
+    if (state.layerVisibility.hackTerminals && state.level.hackTerminals) {
         state.level.hackTerminals.forEach((item) => drawHackTerminal(item));
     }
 
-    if (state.level.checkpoints) {
+    if (state.layerVisibility.checkpoints && state.level.checkpoints) {
         state.level.checkpoints.forEach((item) => drawCheckpoint(item));
     }
 
-    if (state.level.keys) {
+    if (state.layerVisibility.keys && state.level.keys) {
         state.level.keys.forEach((item) => drawKeyItem(item));
     }
 
-    state.level.gems.forEach((item) => circleWorld(item, COLORS.gem, 'gem'));
+    if (state.layerVisibility.gems) {
+        state.level.gems.forEach((item) => circleWorld(item, COLORS.gem, 'gem'));
+    }
+
     circleWorld(state.level.spawn, COLORS.spawn, 'spawn');
     rectWorld(state.level.exit, COLORS.exit, state.level.exit.locked ? 'LOCKED' : 'exit');
 
     drawDrawingPreview();
     drawSelection();
+
+    ctx.restore();
+
+    // Minimap (always 1:1)
+    drawMinimap();
+
     requestAnimationFrame(draw);
 }
 
@@ -920,7 +1277,6 @@ function exportCode() {
     const name = ($('exportName').value || 'level5').replace(/[^a-zA-Z0-9_$]/g, '');
 
     const cleanLevel = JSON.parse(JSON.stringify(state.level));
-    // Clean up internal editor properties before export
     if (cleanLevel.hackTerminals) {
         cleanLevel.hackTerminals.forEach(t => {
             delete t.nearPlayer;
@@ -991,9 +1347,9 @@ function importLevel(text) {
     updatePanels();
 }
 
-function showNotification(msg) {
+function showNotification(msg, isError = false) {
     const el = document.createElement('div');
-    el.className = 'notification';
+    el.className = 'notification' + (isError ? ' error' : '');
     el.textContent = msg;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
@@ -1118,9 +1474,31 @@ canvas.addEventListener('mouseup', (event) => {
 
 canvas.addEventListener('wheel', (event) => {
     event.preventDefault();
-    state.cameraX = Math.max(0, Math.min(levelWidth() - canvas.width, state.cameraX + event.deltaY));
+
+    // Ctrl+Wheel = zoom
+    if (event.ctrlKey || event.metaKey) {
+        const delta = event.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(state.zoom + delta);
+        return;
+    }
+
+    // Normal wheel = camera scroll
+    state.cameraX = Math.max(0, Math.min(levelWidth() - canvas.width / state.zoom, state.cameraX + event.deltaY));
     updatePanels(false);
 }, { passive: false });
+
+// Minimap click to navigate
+minimapCanvas.addEventListener('click', (event) => {
+    const rect = minimapCanvas.getBoundingClientRect();
+    const mx = event.clientX - rect.left;
+    const lw = levelWidth();
+    const scaleX = minimapCanvas.width / lw;
+    const clickWorldX = mx / scaleX;
+
+    // Center camera on clicked position
+    state.cameraX = Math.max(0, Math.min(lw - canvas.width / state.zoom, clickWorldX - (canvas.width / state.zoom) / 2));
+    updatePanels(false);
+});
 
 window.addEventListener('keydown', (event) => {
     // Undo/Redo
@@ -1139,14 +1517,53 @@ window.addEventListener('keydown', (event) => {
         return;
     }
 
+    // Copy
+    if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        copySelected();
+        event.preventDefault();
+        return;
+    }
+
+    // Paste
+    if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        pasteClipboard();
+        event.preventDefault();
+        return;
+    }
+
+    // Duplicate
+    if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        duplicateSelected();
+        event.preventDefault();
+        return;
+    }
+
+    // Zoom shortcuts
+    if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+')) {
+        setZoom(state.zoom + 0.1);
+        event.preventDefault();
+        return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === '-') {
+        setZoom(state.zoom - 0.1);
+        event.preventDefault();
+        return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === '0') {
+        setZoom(1);
+        event.preventDefault();
+        return;
+    }
+
     if (event.key === 'Delete' || event.key === 'Backspace') {
-        // Don't delete when editing input fields
         if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
         deleteSelected();
     }
 
     if (!state.selected) return;
-    // Don't move when editing input fields
     if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
 
     const step = event.shiftKey ? grid() * 5 : grid();
@@ -1164,6 +1581,12 @@ window.addEventListener('keydown', (event) => {
     updatePanels();
 });
 
+// Zoom buttons
+$('zoomInBtn').addEventListener('click', () => setZoom(state.zoom + 0.15));
+$('zoomOutBtn').addEventListener('click', () => setZoom(state.zoom - 0.15));
+$('zoomResetBtn').addEventListener('click', () => setZoom(1));
+
+// Export/Import buttons
 $('exportBtn').addEventListener('click', () => {
     $('exportText').value = exportCode();
 });
@@ -1188,6 +1611,15 @@ $('loadBtn').addEventListener('click', () => {
 
 $('deleteBtn').addEventListener('click', deleteSelected);
 
+// Duplicate button
+$('duplicateBtn').addEventListener('click', duplicateSelected);
+
+// Validate button
+$('validateBtn').addEventListener('click', () => {
+    const results = validateLevel();
+    displayValidation(results);
+});
+
 $('undoBtn')?.addEventListener('click', undo);
 $('redoBtn')?.addEventListener('click', redo);
 
@@ -1204,7 +1636,7 @@ $('importBtn').addEventListener('click', () => {
         importLevel($('importText').value);
         showNotification('Importiert!');
     } catch (error) {
-        alert('Import fehlgeschlagen: ' + error.message);
+        showNotification('Import fehlgeschlagen: ' + error.message, true);
     }
 });
 
@@ -1225,6 +1657,30 @@ if (enemyTypeSelect) {
     });
 }
 
+// Layer visibility toggles
+document.querySelectorAll('#layerToggles input[data-layer]').forEach((input) => {
+    input.addEventListener('change', () => {
+        state.layerVisibility[input.dataset.layer] = input.checked;
+    });
+});
+
+// Object list filter
+$('objListFilter')?.addEventListener('input', () => updateObjectList());
+
+// --- Initialize ---
+
 syncFormFromLevel();
 updatePanels();
+setZoom(1);
+startAutoSave();
 draw();
+
+// Try to auto-load from localStorage
+const autoLoad = localStorage.getItem('shadowrunner-level-editor');
+if (autoLoad) {
+    try {
+        importLevel(autoLoad);
+    } catch (e) {
+        // Silent fail on auto-load
+    }
+}
