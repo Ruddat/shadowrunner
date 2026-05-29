@@ -5,9 +5,10 @@
  * - Master Volume, Music Volume, SFX Volume sliders
  * - Mute toggle
  * - Fullscreen toggle
- * - Gamepad indicator
+ * - Gamepad config (remap buttons)
  * - Speedrun timer toggle
  * - Back button
+ * - Full keyboard + gamepad navigation
  *
  * Opened from: Title screen "OPTIONS" or Pause menu
  */
@@ -25,23 +26,21 @@ import {
     setMuted,
     persistSettings,
 } from './audioManager.js';
-import { keys, isGamepadConnected, getGamepadId } from './input.js';
+import {
+    keys,
+    justPressed,
+    isGamepadConnected,
+    getGamepadId,
+    getGamepadBindings,
+    setGamepadBinding,
+    resetGamepadBindings,
+    getDefaultBindings,
+    getGamepadButtonName,
+    getGamepadMenuAction,
+    getPressedGamepadButton,
+} from './input.js';
 
-const OPTIONS_ITEMS = [
-    { id: 'masterVol', label: 'MASTER VOL', type: 'slider', get: getMasterVolume, set: setMasterVolume },
-    { id: 'musicVol', label: 'MUSIC VOL', type: 'slider', get: getMusicVolume, set: setMusicVolume },
-    { id: 'sfxVol', label: 'SFX VOL', type: 'slider', get: getSfxVolume, set: setSfxVolume },
-    { id: 'mute', label: 'MUTE', type: 'toggle', get: isMuted, set: (v) => setMuted(v) },
-    { id: 'fullscreen', label: 'FULLSCREEN', type: 'toggle', get: isFullscreen, set: toggleFullscreen },
-    { id: 'speedrun', label: 'SPEEDRUN TIMER', type: 'toggle', get: isSpeedrunEnabled, set: setSpeedrunEnabled },
-    { id: 'back', label: 'BACK', type: 'action', action: null },
-];
-
-let selectedIndex = 0;
-let optionsTime = 0;
-let transitionIn = 0;
-
-// Speedrun setting (persisted)
+// --- Speedrun setting ---
 let speedrunEnabled = false;
 
 function isSpeedrunEnabled() { return speedrunEnabled; }
@@ -65,24 +64,77 @@ try {
     if (saved.speedrunEnabled !== undefined) speedrunEnabled = saved.speedrunEnabled;
 } catch (_) {}
 
+// --- Options Menu State ---
+
+const MENU_MAIN = 'main';
+const MENU_GAMEPAD = 'gamepad';
+
+let currentMenu = MENU_MAIN;
+let selectedIndex = 0;
+let optionsTime = 0;
+let transitionIn = 0;
+
+// Gamepad config state
+let gpConfigSelectedIndex = 0;
+let gpConfigListening = false;   // waiting for button press
+let gpConfigAction = null;       // which action we're rebinding
+let gpListenTimer = 0;
+
+const MAIN_ITEMS = [
+    { id: 'masterVol', label: 'MASTER VOL', type: 'slider', get: getMasterVolume, set: setMasterVolume },
+    { id: 'musicVol', label: 'MUSIC VOL', type: 'slider', get: getMusicVolume, set: setMusicVolume },
+    { id: 'sfxVol', label: 'SFX VOL', type: 'slider', get: getSfxVolume, set: setSfxVolume },
+    { id: 'mute', label: 'MUTE', type: 'toggle', get: isMuted, set: (v) => setMuted(v) },
+    { id: 'fullscreen', label: 'FULLSCREEN', type: 'toggle', get: isFullscreen, set: toggleFullscreen },
+    { id: 'gamepad', label: 'GAMEPAD CONFIG', type: 'action', action: 'gamepad' },
+    { id: 'speedrun', label: 'SPEEDRUN TIMER', type: 'toggle', get: isSpeedrunEnabled, set: setSpeedrunEnabled },
+    { id: 'back', label: 'BACK', type: 'action', action: 'back' },
+];
+
+// Gamepad binding actions (excluding move/pause which use stick/dpad)
+const GP_BIND_ACTIONS = [
+    { action: 'jump', label: 'JUMP' },
+    { action: 'shoot', label: 'SHOOT' },
+    { action: 'shadow', label: 'SHADOW' },
+    { action: 'dash', label: 'DASH' },
+    { action: 'interact', label: 'INTERACT' },
+];
+
 export function initOptionsMenu() {
+    currentMenu = MENU_MAIN;
     selectedIndex = 0;
     optionsTime = 0;
     transitionIn = 0;
+    gpConfigSelectedIndex = 0;
+    gpConfigListening = false;
+    gpConfigAction = null;
 }
 
 export function updateOptionsMenu(dt) {
     optionsTime += dt;
     transitionIn = Math.min(1, transitionIn + dt * 4);
+
+    if (gpConfigListening) {
+        gpListenTimer += dt;
+    }
 }
 
 export function drawOptionsMenu(ctx) {
+    if (currentMenu === MENU_GAMEPAD) {
+        drawGamepadConfig(ctx);
+    } else {
+        drawMainMenu(ctx);
+    }
+}
+
+// ========== MAIN MENU ==========
+
+function drawMainMenu(ctx) {
     const W = CONFIG.width;
     const H = CONFIG.height;
 
     ctx.save();
 
-    // Transition
     const t = transitionIn;
     ctx.globalAlpha = t;
 
@@ -100,8 +152,8 @@ export function drawOptionsMenu(ctx) {
     ctx.restore();
 
     // Panel
-    const panelW = 600;
-    const panelH = 440;
+    const panelW = 620;
+    const panelH = 470;
     const panelX = (W - panelW) / 2;
     const panelY = (H - panelH) / 2;
 
@@ -154,18 +206,18 @@ export function drawOptionsMenu(ctx) {
         ctx.font = '700 10px monospace';
         ctx.textAlign = 'right';
         const gpId = getGamepadId();
-        const displayName = gpId.length > 30 ? gpId.substring(0, 30) + '...' : gpId;
+        const displayName = gpId.length > 28 ? gpId.substring(0, 28) + '...' : gpId;
         ctx.fillText('GAMEPAD: ' + displayName, panelX + panelW - 20, panelY + 26);
         ctx.restore();
     }
 
     // Option items
     const startY = panelY + 82;
-    const itemH = 46;
+    const itemH = 40;
     const itemGap = 4;
 
-    for (let i = 0; i < OPTIONS_ITEMS.length; i++) {
-        const item = OPTIONS_ITEMS[i];
+    for (let i = 0; i < MAIN_ITEMS.length; i++) {
+        const item = MAIN_ITEMS[i];
         const iy = startY + i * (itemH + itemGap);
         const isSelected = i === selectedIndex;
 
@@ -176,7 +228,7 @@ export function drawOptionsMenu(ctx) {
     ctx.fillStyle = 'rgba(33, 230, 255, 0.5)';
     ctx.font = '700 10px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('W/S NAVIGATE  |  A/D ADJUST  |  ENTER SELECT  |  ESC BACK', W / 2, panelY + panelH - 20);
+    ctx.fillText('W/S OR ARROWS: NAVIGATE  |  A/D: ADJUST  |  ENTER/SPACE: SELECT  |  ESC: BACK', W / 2, panelY + panelH - 20);
 
     ctx.restore();
 }
@@ -212,14 +264,15 @@ function drawOptionItem(ctx, x, y, width, height, item, isSelected) {
     ctx.fillText(item.label, x + 14, y + height / 2 + 1);
 
     if (item.type === 'slider') {
-        drawSlider(ctx, x + 200, y + 10, width - 220, height - 20, item.get, item.set, isSelected);
+        drawSlider(ctx, x + 210, y + 8, width - 270, height - 16, item.get, item.set, isSelected);
     } else if (item.type === 'toggle') {
-        drawToggle(ctx, x + width - 80, y + 8, 60, height - 16, item.get, item.set, isSelected);
+        drawToggle(ctx, x + width - 80, y + 6, 60, height - 12, item.get, item.set, isSelected);
     } else if (item.type === 'action') {
         ctx.fillStyle = isSelected ? '#21e6ff' : 'rgba(33, 230, 255, 0.4)';
         ctx.font = '700 12px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('ENTER', x + width / 2, y + height / 2 + 1);
+        const actionLabel = item.action === 'gamepad' ? (isGamepadConnected() ? 'CONFIGURE' : 'NO PAD') : 'ENTER';
+        ctx.fillText(actionLabel, x + width / 2, y + height / 2 + 1);
     }
 
     ctx.restore();
@@ -292,7 +345,176 @@ function drawToggle(ctx, x, y, width, height, getValue, setValue, isSelected) {
     ctx.textAlign = 'left';
 }
 
-// --- Input handling ---
+// ========== GAMEPAD CONFIG ==========
+
+function drawGamepadConfig(ctx) {
+    const W = CONFIG.width;
+    const H = CONFIG.height;
+
+    ctx.save();
+
+    const t = transitionIn;
+    ctx.globalAlpha = t;
+
+    // Dark overlay
+    ctx.fillStyle = `rgba(3, 7, 18, ${0.95 * t})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Panel
+    const panelW = 580;
+    const panelH = 420;
+    const panelX = (W - panelW) / 2;
+    const panelY = (H - panelH) / 2;
+
+    // Panel background
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(5, 5, 20, 0.97)';
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+
+    // Panel border
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(panelX + 8, panelY + 8, panelW - 16, panelH - 16);
+
+    // Title
+    ctx.save();
+    const titlePulse = Math.sin(optionsTime * 3) * 0.12 + 0.88;
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 14 * titlePulse;
+    ctx.fillStyle = '#facc15';
+    ctx.font = '900 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GAMEPAD CONFIG', W / 2, panelY + 32);
+    ctx.restore();
+
+    // Gamepad name
+    if (isGamepadConnected()) {
+        ctx.fillStyle = '#22c55e';
+        ctx.font = '700 10px monospace';
+        ctx.textAlign = 'center';
+        const gpId = getGamepadId();
+        const displayName = gpId.length > 40 ? gpId.substring(0, 40) + '...' : gpId;
+        ctx.fillText('Connected: ' + displayName, W / 2, panelY + 54);
+    } else {
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '700 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('NO GAMEPAD DETECTED - Press a button on your controller', W / 2, panelY + 54);
+    }
+
+    // Binding rows
+    const bindings = getGamepadBindings();
+    const startY = panelY + 78;
+    const rowH = 42;
+    const rowGap = 4;
+
+    for (let i = 0; i < GP_BIND_ACTIONS.length; i++) {
+        const { action, label } = GP_BIND_ACTIONS[i];
+        const boundBtns = bindings[action] || [];
+        const btnNames = boundBtns.map(b => getGamepadButtonName(b)).join(' + ');
+        const iy = startY + i * (rowH + rowGap);
+        const isSelected = i === gpConfigSelectedIndex;
+        const isListening = gpConfigListening && gpConfigAction === action;
+
+        // Row background
+        if (isSelected) {
+            const selPulse = Math.sin(optionsTime * 4) * 0.12 + 0.88;
+            if (isListening) {
+                // Pulsing red when listening for input
+                const listenPulse = Math.sin(optionsTime * 8) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(250, 204, 21, ${0.15 * listenPulse})`;
+                ctx.strokeStyle = `rgba(250, 204, 21, ${0.8 * listenPulse})`;
+            } else {
+                ctx.fillStyle = `rgba(33, 230, 255, ${0.08 * selPulse})`;
+                ctx.strokeStyle = `rgba(33, 230, 255, ${0.5 * selPulse})`;
+            }
+            ctx.fillRect(panelX + 20, iy, panelW - 40, rowH);
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(panelX + 20, iy, panelW - 40, rowH);
+
+            // Left accent
+            ctx.fillStyle = isListening ? '#facc15' : '#21e6ff';
+            ctx.shadowColor = isListening ? '#facc15' : '#21e6ff';
+            ctx.shadowBlur = 4;
+            ctx.fillRect(panelX + 20, iy, 3, rowH);
+            ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.fillRect(panelX + 20, iy, panelW - 40, rowH);
+        }
+
+        // Action label
+        ctx.fillStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)';
+        ctx.font = `${isSelected ? '700' : '400'} 13px monospace`;
+        ctx.textAlign = 'left';
+        ctx.fillText(label, panelX + 40, iy + rowH / 2 + 1);
+
+        // Button binding
+        if (isListening) {
+            const dots = '.'.repeat(Math.floor(optionsTime * 3) % 4);
+            ctx.fillStyle = '#facc15';
+            ctx.font = '700 12px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('PRESS BUTTON' + dots, panelX + panelW - 40, iy + rowH / 2 + 1);
+        } else {
+            ctx.fillStyle = isSelected ? '#facc15' : 'rgba(250, 204, 21, 0.5)';
+            ctx.font = '700 11px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(btnNames || 'NONE', panelX + panelW - 40, iy + rowH / 2 + 1);
+        }
+    }
+
+    // RESET DEFAULTS row
+    const resetY = startY + GP_BIND_ACTIONS.length * (rowH + rowGap) + 10;
+    const isResetSelected = gpConfigSelectedIndex === GP_BIND_ACTIONS.length;
+
+    if (isResetSelected) {
+        const selPulse = Math.sin(optionsTime * 4) * 0.12 + 0.88;
+        ctx.fillStyle = `rgba(239, 68, 68, ${0.08 * selPulse})`;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${0.5 * selPulse})`;
+        ctx.fillRect(panelX + 20, resetY, panelW - 40, rowH);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(panelX + 20, resetY, panelW - 40, rowH);
+    }
+    ctx.fillStyle = isResetSelected ? '#ef4444' : 'rgba(239, 68, 68, 0.4)';
+    ctx.font = '700 13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('RESET DEFAULTS', W / 2, resetY + rowH / 2 + 1);
+
+    // BACK row
+    const backY = resetY + rowH + rowGap;
+    const isBackSelected = gpConfigSelectedIndex === GP_BIND_ACTIONS.length + 1;
+
+    if (isBackSelected) {
+        const selPulse = Math.sin(optionsTime * 4) * 0.12 + 0.88;
+        ctx.fillStyle = `rgba(33, 230, 255, ${0.08 * selPulse})`;
+        ctx.strokeStyle = `rgba(33, 230, 255, ${0.5 * selPulse})`;
+        ctx.fillRect(panelX + 20, backY, panelW - 40, rowH);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(panelX + 20, backY, panelW - 40, rowH);
+    }
+    ctx.fillStyle = isBackSelected ? '#21e6ff' : 'rgba(33, 230, 255, 0.4)';
+    ctx.font = '700 13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('BACK', W / 2, backY + rowH / 2 + 1);
+
+    // Help text
+    ctx.fillStyle = 'rgba(250, 204, 21, 0.5)';
+    ctx.font = '700 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('W/S: NAVIGATE  |  ENTER: REBIND  |  ESC: BACK', W / 2, panelY + panelH - 20);
+
+    ctx.restore();
+}
+
+// ========== INPUT HANDLING ==========
 
 let inputCooldown = 0;
 
@@ -300,38 +522,56 @@ export function handleOptionsInput(dt) {
     inputCooldown = Math.max(0, inputCooldown - dt);
     if (inputCooldown > 0) return null;
 
-    const item = OPTIONS_ITEMS[selectedIndex];
+    // Also check gamepad menu actions
+    const gpAction = getGamepadMenuAction();
+    if (gpAction === 'back') {
+        // B/Circle on gamepad = back
+        return handleBack();
+    }
 
-    // Navigate
-    if (keys.up) {
-        selectedIndex = (selectedIndex - 1 + OPTIONS_ITEMS.length) % OPTIONS_ITEMS.length;
-        inputCooldown = 0.15;
+    if (currentMenu === MENU_GAMEPAD) {
+        return handleGamepadConfigInput(dt, gpAction);
+    }
+
+    return handleMainMenuInput(dt, gpAction);
+}
+
+function handleMainMenuInput(dt, gpAction) {
+    const item = MAIN_ITEMS[selectedIndex];
+
+    // Navigate up
+    if (justPressed('up') || gpAction === 'up') {
+        selectedIndex = (selectedIndex - 1 + MAIN_ITEMS.length) % MAIN_ITEMS.length;
+        inputCooldown = 0.12;
         playSound('menuMove');
         return null;
     }
-    if (keys.down) {
-        selectedIndex = (selectedIndex + 1) % OPTIONS_ITEMS.length;
-        inputCooldown = 0.15;
+
+    // Navigate down
+    if (justPressed('down') || gpAction === 'down') {
+        selectedIndex = (selectedIndex + 1) % MAIN_ITEMS.length;
+        inputCooldown = 0.12;
         playSound('menuMove');
         return null;
     }
 
-    // Adjust value
+    // Adjust slider left
     if (item.type === 'slider') {
-        if (keys.left) {
+        if (keys.left || gpAction === 'left') {
             item.set(Math.max(0, item.get() - 0.05));
             inputCooldown = 0.08;
             return null;
         }
-        if (keys.right) {
+        if (keys.right || gpAction === 'right') {
             item.set(Math.min(1, item.get() + 0.05));
             inputCooldown = 0.08;
             return null;
         }
     }
 
+    // Toggle
     if (item.type === 'toggle') {
-        if (keys.left || keys.right || keys.jump || keys.interact) {
+        if (justPressed('left') || justPressed('right') || justPressed('jump') || justPressed('interact') || gpAction === 'confirm') {
             item.set(!item.get());
             inputCooldown = 0.2;
             playSound('menuSelect');
@@ -339,36 +579,126 @@ export function handleOptionsInput(dt) {
         }
     }
 
-    // Confirm action (back)
-    if (keys.shoot || keys.interact || keys.jump) {
-        if (item.type === 'action') {
-            inputCooldown = 0.25;
-            playSound('menuSelect');
-            persistSettings();
-            // Also persist speedrun setting
-            try {
-                const settings = JSON.parse(localStorage.getItem('shadowrunner_settings') || '{}');
-                settings.speedrunEnabled = speedrunEnabled;
-                localStorage.setItem('shadowrunner_settings', JSON.stringify(settings));
-            } catch (_) {}
-            return 'back';
+    // Action items
+    if (item.type === 'action') {
+        if (justPressed('jump') || justPressed('interact') || gpAction === 'confirm') {
+            if (item.action === 'back') {
+                return handleBack();
+            }
+            if (item.action === 'gamepad') {
+                currentMenu = MENU_GAMEPAD;
+                gpConfigSelectedIndex = 0;
+                gpConfigListening = false;
+                gpConfigAction = null;
+                inputCooldown = 0.25;
+                playSound('menuSelect');
+                return null;
+            }
         }
     }
 
-    // Escape / dash = back
-    if (keys.dash) {
-        inputCooldown = 0.25;
-        playSound('menuSelect');
-        persistSettings();
-        try {
-            const settings = JSON.parse(localStorage.getItem('shadowrunner_settings') || '{}');
-            settings.speedrunEnabled = speedrunEnabled;
-            localStorage.setItem('shadowrunner_settings', JSON.stringify(settings));
-        } catch (_) {}
-        return 'back';
+    // Escape = back
+    if (justPressed('pause')) {
+        return handleBack();
     }
 
     return null;
 }
 
+function handleGamepadConfigInput(dt, gpAction) {
+    const totalItems = GP_BIND_ACTIONS.length + 2; // actions + RESET + BACK
 
+    // If listening for a button binding
+    if (gpConfigListening) {
+        // Check for any pressed gamepad button
+        const btnIdx = getPressedGamepadButton();
+        if (btnIdx >= 0 && btnIdx !== 9) { // Don't bind Start button
+            setGamepadBinding(gpConfigAction, [btnIdx]);
+
+            gpConfigListening = false;
+            gpConfigAction = null;
+            inputCooldown = 0.3;
+            playSound('menuSelect');
+        }
+
+        // Cancel with Escape
+        if (justPressed('pause')) {
+            gpConfigListening = false;
+            gpConfigAction = null;
+            inputCooldown = 0.2;
+        }
+
+        return null;
+    }
+
+    // Navigate up
+    if (justPressed('up') || gpAction === 'up') {
+        gpConfigSelectedIndex = (gpConfigSelectedIndex - 1 + totalItems) % totalItems;
+        inputCooldown = 0.12;
+        playSound('menuMove');
+        return null;
+    }
+
+    // Navigate down
+    if (justPressed('down') || gpAction === 'down') {
+        gpConfigSelectedIndex = (gpConfigSelectedIndex + 1) % totalItems;
+        inputCooldown = 0.12;
+        playSound('menuMove');
+        return null;
+    }
+
+    // Confirm
+    if (justPressed('jump') || justPressed('interact') || gpAction === 'confirm') {
+        if (gpConfigSelectedIndex < GP_BIND_ACTIONS.length) {
+            // Start listening for button press
+            gpConfigAction = GP_BIND_ACTIONS[gpConfigSelectedIndex].action;
+            gpConfigListening = true;
+            gpListenTimer = 0;
+            inputCooldown = 0.3;
+            playSound('menuSelect');
+        } else if (gpConfigSelectedIndex === GP_BIND_ACTIONS.length) {
+            // RESET DEFAULTS
+            resetGamepadBindings();
+            inputCooldown = 0.3;
+            playSound('menuSelect');
+        } else {
+            // BACK
+            currentMenu = MENU_MAIN;
+            inputCooldown = 0.25;
+            playSound('menuSelect');
+        }
+        return null;
+    }
+
+    // Escape = back to main options
+    if (justPressed('pause')) {
+        currentMenu = MENU_MAIN;
+        inputCooldown = 0.25;
+        playSound('menuSelect');
+        return null;
+    }
+
+    return null;
+}
+
+function handleBack() {
+    if (currentMenu === MENU_GAMEPAD) {
+        gpConfigListening = false;
+        gpConfigAction = null;
+        currentMenu = MENU_MAIN;
+        inputCooldown = 0.25;
+        playSound('menuSelect');
+        return null;
+    }
+
+    inputCooldown = 0.25;
+    playSound('menuSelect');
+    persistSettings();
+    // Persist speedrun setting
+    try {
+        const settings = JSON.parse(localStorage.getItem('shadowrunner_settings') || '{}');
+        settings.speedrunEnabled = speedrunEnabled;
+        localStorage.setItem('shadowrunner_settings', JSON.stringify(settings));
+    } catch (_) {}
+    return 'back';
+}

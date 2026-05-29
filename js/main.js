@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
 import { getLevel } from './levels.js';
-import { keys, pollGamepads, getGamepadMenuAction } from './input.js';
+import { keys, pollGamepads, getGamepadMenuAction, saveKeySnapshot, justPressed } from './input.js';
 import { initIntro, updateIntro, drawIntro } from './intro.js';
 import { updateParticles, drawParticles } from './particles.js';
 import {
@@ -186,11 +186,15 @@ function update(dt) {
                 state.optionsPreviousState = null;
             }
         }
+        saveKeySnapshot();
         return;
     }
 
     // Pause: freeze all updates
-    if (state.paused) return;
+    if (state.paused) {
+        saveKeySnapshot();
+        return;
+    }
 
     if (state.gameState === 'intro') {
         updateIntro(dt);
@@ -284,6 +288,9 @@ function update(dt) {
             state.weaponHudPulse = 0;
         }
     }
+
+    // Save key snapshot for edge detection (justPressed)
+    saveKeySnapshot();
 }
 
 // --- Render ---
@@ -954,6 +961,9 @@ function loop(timestamp) {
 // --- Event Handlers ---
 
 window.addEventListener('keydown', (e) => {
+    // Options menu handles its own keyboard input
+    if (state.optionsOpen) return;
+
     if (state.gameState === 'intro' && e.code === 'Space') {
         state.gameState = 'title';
         playMusic('title');
