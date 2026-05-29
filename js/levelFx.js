@@ -1,5 +1,5 @@
 /**
- * levelFx.js - Level visual effects (stars, fog, neon dust, scanlines, rain, sparks, warning lights)
+ * levelFx.js - Level visual effects (stars, fog, neon dust, scanlines, rain, sparks, warning lights, thunder)
  * Now powered by Neon-Sync: effects react to music intensity and beats.
  */
 
@@ -13,6 +13,14 @@ const rainSplashes = [];
 const sparkParticles = [];
 const warningLights = [];
 
+// --- Thunder / Lightning state ---
+let thunderActive = false;
+let lightningBolts = [];     // generated bolt paths
+let flashIntensity = 0;     // 0..1 full-screen white flash
+let nextLightningIn = 5;    // seconds until next strike
+let thunderTimer = 0;
+let thunderRumble = null;   // Web Audio thunder sound
+
 export function initLevelFx() {
     stars.length = 0;
     fogLayers.length = 0;
@@ -21,6 +29,11 @@ export function initLevelFx() {
     rainSplashes.length = 0;
     sparkParticles.length = 0;
     warningLights.length = 0;
+    lightningBolts = [];
+    flashIntensity = 0;
+    nextLightningIn = 4 + Math.random() * 6;
+    thunderTimer = 0;
+    thunderActive = false;
 
     for (let i = 0; i < 140; i++) {
         stars.push({
@@ -107,9 +120,157 @@ function createSpark(x, y) {
     };
 }
 
+// --- Procedural Lightning Bolt Generator ---
+
+function generateLightningBolt(startX, startY, endY, branchDepth) {
+    const segments = [];
+    const points = [{ x: startX, y: startY }];
+
+    const numSegments = 8 + Math.floor(Math.random() * 6);
+    const segH = (endY - startY) / numSegments;
+
+    let cx = startX;
+    for (let i = 1; i <= numSegments; i++) {
+        cx += (Math.random() - 0.5) * 60;
+        points.push({ x: cx, y: startY + segH * i });
+    }
+
+    // Main bolt
+    for (let i = 0; i < points.length - 1; i++) {
+        segments.push({
+            x1: points[i].x, y1: points[i].y,
+            x2: points[i + 1].x, y2: points[i + 1].y,
+            width: 3 - (i / points.length) * 1.5,
+            brightness: 1 - (i / points.length) * 0.3,
+        });
+    }
+
+    // Branches
+    if (branchDepth > 0) {
+        const branchCount = 1 + Math.floor(Math.random() * 3);
+        for (let b = 0; b < branchCount; b++) {
+            const branchIdx = 2 + Math.floor(Math.random() * (points.length - 4));
+            const bp = points[branchIdx];
+            const branchLen = 30 + Math.random() * 60;
+            const branchAngle = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.6);
+            const bEndX = bp.x + Math.sin(branchAngle) * branchLen;
+            const bEndY = bp.y + Math.cos(branchAngle) * branchLen * 0.7;
+
+            // Sub-branches as thin lines
+            segments.push({
+                x1: bp.x, y1: bp.y,
+                x2: bEndX, y2: bEndY,
+                width: 1.5,
+                brightness: 0.6,
+                isBranch: true,
+            });
+        }
+    }
+
+    return segments;
+}
+
+function triggerLightning() {
+    const startX = 100 + Math.random() * 1000;
+    lightningBolts = [];
+
+    // Main bolt
+    lightningBolts.push({
+        segments: generateLightningBolt(startX, 0, 300 + Math.random() * 150, 2),
+        life: 0.25 + Math.random() * 0.15,
+        maxLife: 0.25 + Math.random() * 0.15,
+    });
+
+    // Sometimes a second bolt slightly offset
+    if (Math.random() < 0.4) {
+        lightningBolts.push({
+            segments: generateLightningBolt(startX + 40 + Math.random() * 80, 0, 250 + Math.random() * 100, 1),
+            life: 0.15 + Math.random() * 0.1,
+            maxLife: 0.15 + Math.random() * 0.1,
+        });
+    }
+
+    flashIntensity = 0.8 + Math.random() * 0.2;
+
+    // Thunder rumble (delayed 0.3-1.5s after flash)
+    const delay = 300 + Math.random() * 1200;
+    setTimeout(() => playThunderRumble(), delay);
+}
+
+function playThunderRumble() {
+    try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Low rumble — brown noise filtered
+        const duration = 1.5 + Math.random() * 1.5;
+        const bufferSize = ac.sampleRate * duration;
+        const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        // Brown noise
+        let lastOut = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            data[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = data[i];
+            data[i] *= 3.5;
+        }
+
+        const source = ac.createBufferSource();
+        source.buffer = buffer;
+
+        // Low-pass filter for rumble
+        const filter = ac.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 150 + Math.random() * 100;
+
+        // Envelope
+        const gain = ac.createGain();
+        const now = ac.currentTime;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.3 + Math.random() * 0.2, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(ac.destination);
+
+        source.start(now);
+        source.stop(now + duration);
+
+        // Crack — sharp transient before the rumble
+        const crackLen = ac.sampleRate * 0.08;
+        const crackBuf = ac.createBuffer(1, crackLen, ac.sampleRate);
+        const crackData = crackBuf.getChannelData(0);
+        for (let i = 0; i < crackLen; i++) {
+            crackData[i] = (Math.random() * 2 - 1) * (1 - i / crackLen);
+        }
+        const crackSrc = ac.createBufferSource();
+        crackSrc.buffer = crackBuf;
+        const crackGain = ac.createGain();
+        crackGain.gain.setValueAtTime(0.4, now);
+        crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        const crackFilter = ac.createBiquadFilter();
+        crackFilter.type = 'highpass';
+        crackFilter.frequency.value = 400;
+        crackSrc.connect(crackFilter);
+        crackFilter.connect(crackGain);
+        crackGain.connect(ac.destination);
+        crackSrc.start(now);
+        crackSrc.stop(now + 0.1);
+
+    } catch (e) {
+        // Audio not available — silent lightning
+    }
+}
+
 export function updateLevelFx(dt, level) {
     // Neon-Sync speed multiplier: music intensity drives particle speed
     const speedBoost = 1 + neonSync.intensity * 1.2;
+
+    // Determine if thunder is active (rain implies thunder, or explicit flag)
+    const hasRain = level.fx?.rain;
+    const hasThunder = level.fx?.thunder || hasRain;
 
     if (level.fx?.fog) {
         for (const fog of fogLayers) {
@@ -134,7 +295,7 @@ export function updateLevelFx(dt, level) {
     }
 
     // Rain update
-    if (level.fx?.rain) {
+    if (hasRain) {
         for (const drop of raindrops) {
             drop.x += drop.wind * dt;
             drop.y += drop.speed * dt;
@@ -179,6 +340,43 @@ export function updateLevelFx(dt, level) {
         }
     }
 
+    // Thunder / Lightning update
+    if (hasThunder) {
+        if (!thunderActive) {
+            thunderActive = true;
+        }
+
+        thunderTimer += dt;
+
+        // Countdown to next strike
+        if (thunderTimer >= nextLightningIn) {
+            triggerLightning();
+            thunderTimer = 0;
+            nextLightningIn = 4 + Math.random() * 8; // 4-12s between strikes
+        }
+
+        // Decay flash
+        if (flashIntensity > 0) {
+            // Quick flash then slow fade
+            if (flashIntensity > 0.3) {
+                flashIntensity -= dt * 8; // fast initial fade
+            } else {
+                flashIntensity -= dt * 2; // slower afterglow
+            }
+            if (flashIntensity < 0) flashIntensity = 0;
+        }
+
+        // Decay bolt life
+        for (const bolt of lightningBolts) {
+            bolt.life -= dt;
+        }
+        lightningBolts = lightningBolts.filter(b => b.life > 0);
+    } else {
+        thunderActive = false;
+        flashIntensity = 0;
+        lightningBolts = [];
+    }
+
     // Warning lights update — just time-based, nothing to update per frame
 }
 
@@ -211,6 +409,20 @@ export function drawLevelFxFront(ctx, camera, level, config) {
 
     if (level.fx?.scanlines) {
         drawScanlines(ctx, config);
+    }
+
+    // Lightning bolts (draw on top of everything)
+    if (lightningBolts.length > 0) {
+        drawLightning(ctx, camera, config);
+    }
+
+    // Full-screen flash overlay for lightning
+    if (flashIntensity > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = flashIntensity * 0.6;
+        ctx.fillStyle = '#c8d8f0';
+        ctx.fillRect(0, 0, config.width, config.height);
+        ctx.restore();
     }
 
     // Beat flash overlay: subtle full-screen pulse on every detected beat
@@ -312,8 +524,6 @@ function drawScanlines(ctx, config) {
 // --- Rain Effect ---
 
 function drawRain(ctx, camera, config) {
-    const time = performance.now() * 0.001;
-
     ctx.save();
 
     // Rain streaks
@@ -368,6 +578,61 @@ function drawRain(ctx, camera, config) {
     ctx.fillStyle = '#4a6a8a';
     ctx.fillRect(0, config.height - 80, config.width, 80);
 
+    ctx.globalAlpha = 1;
+    ctx.restore();
+}
+
+// --- Lightning Effect ---
+
+function drawLightning(ctx, camera, config) {
+    ctx.save();
+
+    for (const bolt of lightningBolts) {
+        const ratio = bolt.life / bolt.maxLife;
+
+        for (const seg of bolt.segments) {
+            const x1 = seg.x1 - camera.x * 0.1;
+            const y1 = seg.y1;
+            const x2 = seg.x2 - camera.x * 0.1;
+            const y2 = seg.y2;
+
+            // Outer glow
+            ctx.globalAlpha = ratio * seg.brightness * 0.3;
+            ctx.strokeStyle = '#6b8cba';
+            ctx.lineWidth = seg.width * 4;
+            ctx.shadowColor = '#6b8cba';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Inner core
+            ctx.globalAlpha = ratio * seg.brightness;
+            ctx.strokeStyle = '#d4e4ff';
+            ctx.lineWidth = seg.width;
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Brightest center
+            if (!seg.isBranch) {
+                ctx.globalAlpha = ratio * seg.brightness * 0.8;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = Math.max(0.5, seg.width * 0.4);
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+    }
+
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
     ctx.restore();
 }

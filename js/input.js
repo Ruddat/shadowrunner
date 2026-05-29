@@ -40,7 +40,7 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keys.shoot = true;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keys.shadow = true;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keys.dash = true;
-    if (e.code === 'KeyE' || e.code === 'KeyF') keys.interact = true;
+    if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') keys.interact = true;
     if (e.code === 'Escape' || e.code === 'KeyP') keys.pause = true;
 });
 
@@ -53,7 +53,7 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keys.shoot = false;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keys.shadow = false;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keys.dash = false;
-    if (e.code === 'KeyE' || e.code === 'KeyF') keys.interact = false;
+    if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') keys.interact = false;
     if (e.code === 'Escape' || e.code === 'KeyP') keys.pause = false;
 });
 
@@ -174,7 +174,7 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keyboardHeld.shoot = true;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keyboardHeld.shadow = true;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keyboardHeld.dash = true;
-    if (e.code === 'KeyE' || e.code === 'KeyF') keyboardHeld.interact = true;
+    if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') keyboardHeld.interact = true;
     if (e.code === 'Escape' || e.code === 'KeyP') keyboardHeld.pause = true;
 });
 
@@ -187,7 +187,7 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyJ' || e.code === 'ControlLeft') keyboardHeld.shoot = false;
     if (e.code === 'KeyK' || e.code === 'ShiftLeft') keyboardHeld.shadow = false;
     if (e.code === 'KeyL' || e.code === 'ShiftRight') keyboardHeld.dash = false;
-    if (e.code === 'KeyE' || e.code === 'KeyF') keyboardHeld.interact = false;
+    if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') keyboardHeld.interact = false;
     if (e.code === 'Escape' || e.code === 'KeyP') keyboardHeld.pause = false;
 });
 
