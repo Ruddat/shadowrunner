@@ -1,14 +1,21 @@
 const canvas = document.getElementById('editorCanvas');
 const ctx = canvas.getContext('2d');
 
+// --- State ---
 const state = {
     tool: 'select',
     cameraX: 0,
     mouse: { x: 0, y: 0, worldX: 0, worldY: 0 },
     dragging: false,
+    drawing: false,
+    drawStart: null,
     dragStart: null,
     selected: null,
     level: createEmptyLevel(),
+    undoStack: [],
+    redoStack: [],
+    maxUndo: 50,
+    currentEnemyType: 'walker',
 };
 
 const COLORS = {
@@ -17,12 +24,21 @@ const COLORS = {
     gem: '#ffd166',
     bonusBlock: '#ff3fd5',
     enemy: '#ff4d6d',
+    enemyDrone: '#ff6b00',
+    enemyShield: '#3b82f6',
+    enemyMech: '#dc2626',
+    enemyTurret: '#a855f7',
+    enemyNinja: '#22d3ee',
     hackTerminal: '#ff6600',
     checkpoint: '#22c55e',
     spawn: '#55ff9c',
     exit: '#b388ff',
+    key: '#facc15',
     selected: '#ffffff',
+    drawing: '#ff2bd6',
 };
+
+const ENEMY_TYPES = ['walker', 'drone', 'shield', 'mech', 'turret', 'ninja'];
 
 function createEmptyLevel() {
     return {
@@ -39,12 +55,15 @@ function createEmptyLevel() {
         enemies: [],
         hackTerminals: [],
         checkpoints: [],
+        keys: [],
         fx: {
             stars: false,
             fog: true,
             rain: false,
             scanlines: true,
             neonDust: true,
+            sparks: false,
+            warningLights: false,
         },
         exit: { x: 900, y: 312, width: 70, height: 100, locked: false },
     };
@@ -80,13 +99,19 @@ function setTool(tool) {
         button.classList.toggle('active', button.dataset.tool === tool);
     });
     $('currentToolLabel').textContent = toolLabel(tool);
+
+    // Show/hide enemy type sub-tools
+    const enemySubTools = $('enemySubTools');
+    if (enemySubTools) {
+        enemySubTools.style.display = tool === 'enemy' ? 'block' : 'none';
+    }
 }
 
 function toolLabel(tool) {
     return {
         select: 'Auswählen',
         platform: 'Plattform',
-        shadowPlatform: 'Shadow-Plattform',
+        shadowPlatform: 'Shadow-Plattf.',
         gem: 'Gem',
         bonusBlock: 'Bonusblock',
         enemy: 'Gegner',
@@ -94,8 +119,52 @@ function toolLabel(tool) {
         checkpoint: 'Checkpoint',
         spawn: 'Spawn',
         exit: 'Exit',
+        key: 'Schlüssel',
     }[tool] || tool;
 }
+
+function getEnemyColor(type) {
+    return {
+        drone: COLORS.enemyDrone,
+        shield: COLORS.enemyShield,
+        mech: COLORS.enemyMech,
+        turret: COLORS.enemyTurret,
+        ninja: COLORS.enemyNinja,
+    }[type] || COLORS.enemy;
+}
+
+// --- Undo/Redo ---
+
+function saveUndoState() {
+    const snapshot = JSON.parse(JSON.stringify(state.level));
+    state.undoStack.push(snapshot);
+    if (state.undoStack.length > state.maxUndo) {
+        state.undoStack.shift();
+    }
+    state.redoStack = [];
+}
+
+function undo() {
+    if (state.undoStack.length === 0) return;
+    const currentSnapshot = JSON.parse(JSON.stringify(state.level));
+    state.redoStack.push(currentSnapshot);
+    state.level = state.undoStack.pop();
+    state.selected = null;
+    syncFormFromLevel();
+    updatePanels();
+}
+
+function redo() {
+    if (state.redoStack.length === 0) return;
+    const currentSnapshot = JSON.parse(JSON.stringify(state.level));
+    state.undoStack.push(currentSnapshot);
+    state.level = state.redoStack.pop();
+    state.selected = null;
+    syncFormFromLevel();
+    updatePanels();
+}
+
+// --- Sync ---
 
 function syncLevelFromForm() {
     state.level.name = $('levelName').value || 'Untitled Level';
@@ -107,6 +176,8 @@ function syncLevelFromForm() {
         rain: $('fxRain').checked,
         scanlines: $('fxScanlines').checked,
         neonDust: $('fxNeonDust').checked,
+        sparks: $('fxSparks').checked,
+        warningLights: $('fxWarningLights').checked,
     };
 }
 
@@ -119,9 +190,14 @@ function syncFormFromLevel() {
     $('fxRain').checked = !!state.level.fx?.rain;
     $('fxScanlines').checked = !!state.level.fx?.scanlines;
     $('fxNeonDust').checked = !!state.level.fx?.neonDust;
+    $('fxSparks').checked = !!state.level.fx?.sparks;
+    $('fxWarningLights').checked = !!state.level.fx?.warningLights;
 }
 
+// --- Object creation ---
+
 function addObject(type, x, y) {
+    saveUndoState();
     let item = null;
 
     if (type === 'platform') {
@@ -150,26 +226,15 @@ function addObject(type, x, y) {
     }
 
     if (type === 'enemy') {
-        item = {
-            x,
-            y,
-            width: 46,
-            height: 50,
-            minX: x - 100,
-            maxX: x + 160,
-            speed: 120,
-            direction: 1,
-            health: 2,
-            active: true,
-        };
+        const enemyType = state.currentEnemyType || 'walker';
+        item = createEnemyByType(enemyType, x, y);
         state.level.enemies.push(item);
         selectObject('enemies', item);
     }
 
     if (type === 'hackTerminal') {
         item = {
-            x,
-            y,
+            x, y,
             width: 36,
             height: 52,
             difficulty: 'medium',
@@ -190,6 +255,13 @@ function addObject(type, x, y) {
         selectObject('checkpoints', item);
     }
 
+    if (type === 'key') {
+        item = { x, y, width: 26, height: 26, collected: false };
+        if (!state.level.keys) state.level.keys = [];
+        state.level.keys.push(item);
+        selectObject('keys', item);
+    }
+
     if (type === 'spawn') {
         state.level.spawn = { x, y };
         selectObject('spawn', state.level.spawn);
@@ -203,10 +275,107 @@ function addObject(type, x, y) {
     updatePanels();
 }
 
+function createEnemyByType(type, x, y) {
+    const base = {
+        x, y,
+        width: 46,
+        height: 50,
+        minX: x - 100,
+        maxX: x + 160,
+        speed: 120,
+        direction: 1,
+        health: 2,
+        active: true,
+    };
+
+    switch (type) {
+        case 'drone':
+            return {
+                ...base,
+                type: 'drone',
+                y: y - 100,  // drones float higher
+                width: 38,
+                height: 38,
+                speed: 65,
+                health: 2,
+                canShoot: true,
+                shootDelay: 2.0,
+                shootRangeX: 400,
+                shootRangeY: 220,
+                projectileSpeed: 280,
+                projectileColor: '#ff6b00',
+            };
+        case 'shield':
+            return {
+                ...base,
+                type: 'shield',
+                speed: 80,
+                health: 3,
+                shieldHP: 4,
+                canShoot: true,
+                shootDelay: 1.8,
+                shootRangeX: 500,
+                shootRangeY: 180,
+                projectileSpeed: 320,
+                projectileColor: '#3b82f6',
+            };
+        case 'mech':
+            return {
+                ...base,
+                type: 'mech',
+                width: 56,
+                height: 64,
+                speed: 55,
+                health: 7,
+                chargeSpeed: 700,
+                chargeRange: 400,
+            };
+        case 'turret':
+            return {
+                ...base,
+                type: 'turret',
+                width: 42,
+                height: 42,
+                speed: 0,
+                minX: x,
+                maxX: x + 42,
+                health: 5,
+                canShoot: true,
+                shootDelay: 0.85,
+                shootRangeX: 520,
+                shootRangeY: 400,
+                projectileSpeed: 400,
+                projectileColor: '#a855f7',
+            };
+        case 'ninja':
+            return {
+                ...base,
+                type: 'ninja',
+                width: 42,
+                height: 50,
+                speed: 170,
+                health: 3,
+                canShoot: true,
+                shootDelay: 1.6,
+                shootRangeX: 400,
+                shootRangeY: 200,
+                projectileSpeed: 380,
+                projectileColor: '#22d3ee',
+            };
+        default: // walker
+            return {
+                ...base,
+                canShoot: false,
+            };
+    }
+}
+
 function selectObject(group, item) {
     state.selected = { group, item };
     updateSelectionPanel();
 }
+
+// --- Hit testing ---
 
 function hitTest(worldX, worldY) {
     const tests = [];
@@ -222,6 +391,9 @@ function hitTest(worldX, worldY) {
     }
     if (state.level.checkpoints) {
         for (const item of state.level.checkpoints) tests.push({ group: 'checkpoints', item, rect: item });
+    }
+    if (state.level.keys) {
+        for (const item of state.level.keys) tests.push({ group: 'keys', item, rect: { x: item.x, y: item.y, width: item.width ?? 26, height: item.height ?? 26 } });
     }
     tests.push({ group: 'exit', item: state.level.exit, rect: state.level.exit });
     tests.push({ group: 'spawn', item: state.level.spawn, rect: { x: state.level.spawn.x - 10, y: state.level.spawn.y - 10, width: 20, height: 20 } });
@@ -240,6 +412,7 @@ function hitTest(worldX, worldY) {
 
 function deleteSelected() {
     if (!state.selected) return;
+    saveUndoState();
     const { group, item } = state.selected;
 
     if (Array.isArray(state.level[group])) {
@@ -249,6 +422,8 @@ function deleteSelected() {
     state.selected = null;
     updatePanels();
 }
+
+// --- Selection panel ---
 
 function updateSelectionPanel() {
     const wrap = $('selectionFields');
@@ -269,16 +444,36 @@ function updateSelectionPanel() {
         enemies: 'Gegner',
         hackTerminals: 'Hack-Terminal',
         checkpoints: 'Checkpoint',
+        keys: 'Schlüssel',
         spawn: 'Spawn',
         exit: 'Exit',
     };
     $('selectedLabel').textContent = labels[group] || group;
     $('selectionHint').textContent = 'Änderungen werden sofort übernommen.';
 
-    const fields = Object.keys(item).filter((key) => typeof item[key] !== 'object');
+    // Special fields for enemy type
+    if (group === 'enemies') {
+        addEnemyTypeSelector(wrap, item);
+    }
+
+    // Special fields for exit
+    if (group === 'exit') {
+        addExitFields(wrap, item);
+    }
+
+    const fields = Object.keys(item).filter((key) => {
+        // Skip internal/editor-only fields
+        if (key.startsWith('_')) return false;
+        if (typeof item[key] === 'object' && !Array.isArray(item[key])) return false;
+        return true;
+    });
+
     for (const key of fields) {
         const label = document.createElement('label');
-        label.textContent = key;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'field-name';
+        nameSpan.textContent = key;
+        label.appendChild(nameSpan);
 
         let input;
 
@@ -295,10 +490,12 @@ function updateSelectionPanel() {
             input = document.createElement('select');
             input.innerHTML = '<option value="deactivate">deactivate</option><option value="door">door</option><option value="secret">secret</option><option value="boss">boss</option>';
             input.value = item[key];
-        } else if (group === 'hackTerminals' && (key === 'hacked' || key === 'nearPlayer')) {
+        } else if (group === 'bonusBlocks' && key === 'reward') {
             input = document.createElement('select');
-            input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
-            input.value = String(item[key]);
+            input.innerHTML = '<option value="gem">gem</option><option value="energy">energy</option><option value="life">life</option><option value="weapon">weapon</option><option value="random">random</option>';
+            input.value = item[key];
+        } else if (key === 'type' && group === 'enemies') {
+            continue; // Handled by addEnemyTypeSelector
         } else if (typeof item[key] === 'boolean') {
             input = document.createElement('select');
             input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
@@ -320,6 +517,100 @@ function updateSelectionPanel() {
     }
 }
 
+function addEnemyTypeSelector(wrap, item) {
+    const label = document.createElement('label');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'field-name';
+    nameSpan.textContent = 'type (Gegner-Typ)';
+    label.appendChild(nameSpan);
+
+    const input = document.createElement('select');
+    input.innerHTML = ENEMY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+    input.value = item.type || 'walker';
+
+    input.addEventListener('change', () => {
+        saveUndoState();
+        const newType = input.value;
+        const x = item.x;
+        const y = item.y;
+        const newEnemy = createEnemyByType(newType, x, y);
+
+        // Preserve some custom values if they were edited
+        newEnemy.health = item.health;
+        newEnemy.speed = item.speed;
+        newEnemy.minX = item.minX;
+        newEnemy.maxX = item.maxX;
+        if (item.canShoot !== undefined) newEnemy.canShoot = item.canShoot;
+        if (item.shadowOnly !== undefined) newEnemy.shadowOnly = item.shadowOnly;
+
+        // Replace in array
+        const enemies = state.level.enemies;
+        const idx = enemies.indexOf(item);
+        if (idx >= 0) {
+            enemies[idx] = newEnemy;
+            state.selected.item = newEnemy;
+        }
+
+        updatePanels();
+    });
+
+    label.appendChild(input);
+    wrap.appendChild(label);
+}
+
+function addExitFields(wrap, item) {
+    // unlockMode
+    const modeLabel = document.createElement('label');
+    const modeName = document.createElement('span');
+    modeName.className = 'field-name';
+    modeName.textContent = 'unlockMode';
+    modeLabel.appendChild(modeName);
+
+    const modeInput = document.createElement('select');
+    modeInput.innerHTML = `
+        <option value="">(keine)</option>
+        <option value="allGems">allGems</option>
+        <option value="allEnemies">allEnemies</option>
+        <option value="allGemsOrEnemiesOrKeys">allGemsOrEnemiesOrKeys</option>
+    `;
+    modeInput.value = item.unlockMode || '';
+
+    modeInput.addEventListener('change', () => {
+        if (modeInput.value) {
+            item.unlockMode = modeInput.value;
+        } else {
+            delete item.unlockMode;
+        }
+    });
+
+    modeLabel.appendChild(modeInput);
+    wrap.appendChild(modeLabel);
+
+    // keysRequired
+    const keysLabel = document.createElement('label');
+    const keysName = document.createElement('span');
+    keysName.className = 'field-name';
+    keysName.textContent = 'keysRequired';
+    keysLabel.appendChild(keysName);
+
+    const keysInput = document.createElement('input');
+    keysInput.type = 'number';
+    keysInput.value = item.keysRequired ?? 0;
+    keysInput.min = '0';
+
+    keysInput.addEventListener('input', () => {
+        const val = Number(keysInput.value);
+        if (val > 0) {
+            item.keysRequired = val;
+        } else {
+            delete item.keysRequired;
+        }
+    });
+
+    keysLabel.appendChild(keysInput);
+    wrap.appendChild(keysLabel);
+}
+
 function updatePanels(refreshSelection = true) {
     syncLevelFromForm();
     if (refreshSelection) updateSelectionPanel();
@@ -332,11 +623,14 @@ function updatePanels(refreshSelection = true) {
         state.level.enemies.length,
         (state.level.hackTerminals || []).length,
         (state.level.checkpoints || []).length,
+        (state.level.keys || []).length,
         2, // spawn + exit
     ].reduce((a, b) => a + b, 0);
     $('counts').textContent = `${counts} Objekte`;
     $('mouseInfo').textContent = `x: ${state.mouse.worldX} · y: ${state.mouse.worldY} · cam: ${Math.round(state.cameraX)}`;
 }
+
+// --- Drawing ---
 
 function drawGrid() {
     const g = grid();
@@ -367,8 +661,8 @@ function rectWorld(item, color, label) {
     ctx.fillRect(x, item.y, item.width, item.height);
     ctx.strokeRect(x, item.y, item.width, item.height);
     ctx.fillStyle = '#eef8ff';
-    ctx.font = '12px monospace';
-    ctx.fillText(label, x + 6, item.y + 16);
+    ctx.font = '11px monospace';
+    ctx.fillText(label, x + 4, item.y + 14);
 }
 
 function circleWorld(item, color, label) {
@@ -382,30 +676,46 @@ function circleWorld(item, color, label) {
     ctx.fillText(label, x + 13, item.y + 4);
 }
 
-function drawHackTerminal(item) {
+function drawKeyItem(item) {
     const x = item.x - state.cameraX;
-    const w = item.width;
-    const h = item.height;
-    const color = COLORS.hackTerminal;
+    const w = item.width ?? 26;
+    const h = item.height ?? 26;
+    const color = COLORS.key;
 
-    // Terminal body
     ctx.fillStyle = color + '44';
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.fillRect(x, item.y, w, h);
     ctx.strokeRect(x, item.y, w, h);
 
-    // Screen area
+    // K symbol
+    ctx.fillStyle = '#050510';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('K', x + w / 2, item.y + h / 2 + 5);
+    ctx.textAlign = 'left';
+}
+
+function drawHackTerminal(item) {
+    const x = item.x - state.cameraX;
+    const w = item.width;
+    const h = item.height;
+    const color = COLORS.hackTerminal;
+
+    ctx.fillStyle = color + '44';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, item.y, w, h);
+    ctx.strokeRect(x, item.y, w, h);
+
     ctx.fillStyle = 'rgba(0,255,65,0.15)';
     ctx.fillRect(x + 3, item.y + 3, w - 6, h - 14);
 
-    // Scan line on screen
     const time = Date.now() * 0.001;
     const scanY = item.y + 3 + ((time * 30) % (h - 14));
     ctx.fillStyle = 'rgba(0,255,65,0.3)';
     ctx.fillRect(x + 3, scanY, w - 6, 2);
 
-    // Indicator lights
     for (let i = 0; i < 3; i++) {
         ctx.fillStyle = i === 0 ? '#ff003c' : i === 1 ? '#ff6600' : '#00ff41';
         ctx.beginPath();
@@ -413,14 +723,10 @@ function drawHackTerminal(item) {
         ctx.fill();
     }
 
-    // Label
     ctx.fillStyle = '#eef8ff';
     ctx.font = '9px monospace';
     ctx.fillText('HACK', x + 3, item.y + h - 15);
-
-    // Difficulty/reward info
     ctx.fillStyle = color;
-    ctx.font = '9px monospace';
     ctx.fillText(`${item.difficulty || '?'}`, x + w + 4, item.y + 12);
     ctx.fillStyle = '#aaa';
     ctx.fillText(`${item.reward || '?'}`, x + w + 4, item.y + 24);
@@ -438,7 +744,6 @@ function drawCheckpoint(item) {
     ctx.strokeRect(x, item.y, item.width, item.height);
     ctx.setLineDash([]);
 
-    // CP label
     ctx.fillStyle = color;
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
@@ -451,10 +756,92 @@ function drawCheckpoint(item) {
     }
 }
 
+function drawEnemyOnCanvas(item) {
+    const type = item.type || 'walker';
+    const color = getEnemyColor(type);
+    const x = item.x - state.cameraX;
+
+    // Shadow-only indicator
+    if (item.shadowOnly) {
+        ctx.fillStyle = 'rgba(179, 136, 255, 0.15)';
+        ctx.fillRect(x - 3, item.y - 3, item.width + 6, item.height + 6);
+        ctx.strokeStyle = '#b388ff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(x - 3, item.y - 3, item.width + 6, item.height + 6);
+        ctx.setLineDash([]);
+    }
+
+    ctx.fillStyle = color + '55';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, item.y, item.width, item.height);
+    ctx.strokeRect(x, item.y, item.width, item.height);
+
+    // Enemy type label
+    const typeLabels = {
+        walker: 'W',
+        drone: 'D',
+        shield: 'S',
+        mech: 'M',
+        turret: 'T',
+        ninja: 'N',
+    };
+    ctx.fillStyle = color;
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(typeLabels[type] || '?', x + item.width / 2, item.y + item.height / 2 + 5);
+    ctx.textAlign = 'left';
+
+    // HP label
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '10px monospace';
+    ctx.fillText(`hp:${item.health}`, x + 2, item.y - 4);
+
+    // Patrol range line
+    if (type !== 'turret') {
+        ctx.strokeStyle = color + '66';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(item.minX - state.cameraX, item.y + item.height + 8);
+        ctx.lineTo(item.maxX - state.cameraX, item.y + item.height + 8);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Patrol endpoints
+        ctx.fillStyle = color + '88';
+        ctx.fillRect(item.minX - state.cameraX - 2, item.y + item.height + 4, 4, 8);
+        ctx.fillRect(item.maxX - state.cameraX - 2, item.y + item.height + 4, 4, 8);
+    }
+
+    // Shoot indicator
+    if (item.canShoot) {
+        ctx.fillStyle = '#ff003c';
+        ctx.beginPath();
+        ctx.arc(x + item.width - 2, item.y + 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Shield HP indicator
+    if (type === 'shield' && item.shieldHP) {
+        ctx.fillStyle = '#60a5fa';
+        ctx.font = '9px monospace';
+        ctx.fillText(`shield:${item.shieldHP}`, x + item.width + 4, item.y + 12);
+    }
+}
+
 function drawSelection() {
     if (!state.selected) return;
     const item = state.selected.item;
-    const rect = item.width ? item : { x: item.x - 12, y: item.y - 12, width: 24, height: 24 };
+    let rect;
+    if (item.width) {
+        rect = item;
+    } else if (item.width === 0) {
+        rect = { x: item.x - 12, y: item.y - 12, width: 24, height: 24 };
+    } else {
+        rect = { x: item.x - 12, y: item.y - 12, width: item.width ?? 26, height: item.height ?? 26 };
+    }
     ctx.strokeStyle = COLORS.selected;
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
@@ -462,10 +849,35 @@ function drawSelection() {
     ctx.setLineDash([]);
 }
 
+function drawDrawingPreview() {
+    if (!state.drawing || !state.drawStart) return;
+    const g = grid();
+    const worldPos = { x: state.mouse.worldX, y: state.mouse.worldY };
+    const startX = Math.min(state.drawStart.x, worldPos.x);
+    const startY = Math.min(state.drawStart.y, worldPos.y);
+    const endX = Math.max(state.drawStart.x, worldPos.x);
+    const endY = Math.max(state.drawStart.y, worldPos.y);
+    const w = Math.max(g, endX - startX);
+    const h = Math.max(g, endY - startY);
+
+    ctx.fillStyle = COLORS.drawing + '33';
+    ctx.strokeStyle = COLORS.drawing;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.fillRect(startX - state.cameraX, startY, w, h);
+    ctx.strokeRect(startX - state.cameraX, startY, w, h);
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '11px monospace';
+    ctx.fillText(`${w}x${h}`, startX - state.cameraX + 4, startY + 14);
+}
+
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid();
 
+    // Level background area
     ctx.fillStyle = 'rgba(255,255,255,.05)';
     ctx.fillRect(-state.cameraX, 0, levelWidth(), canvas.height);
 
@@ -478,14 +890,7 @@ function draw() {
 
     state.level.bonusBlocks.forEach((item) => rectWorld(item, COLORS.bonusBlock, item.reward || 'bonus'));
 
-    state.level.enemies.forEach((item) => {
-        rectWorld(item, COLORS.enemy, `${item.type || 'enemy'} hp:${item.health}`);
-        ctx.strokeStyle = 'rgba(255,77,109,.55)';
-        ctx.beginPath();
-        ctx.moveTo(item.minX - state.cameraX, item.y + item.height + 8);
-        ctx.lineTo(item.maxX - state.cameraX, item.y + item.height + 8);
-        ctx.stroke();
-    });
+    state.level.enemies.forEach((item) => drawEnemyOnCanvas(item));
 
     if (state.level.hackTerminals) {
         state.level.hackTerminals.forEach((item) => drawHackTerminal(item));
@@ -495,23 +900,68 @@ function draw() {
         state.level.checkpoints.forEach((item) => drawCheckpoint(item));
     }
 
+    if (state.level.keys) {
+        state.level.keys.forEach((item) => drawKeyItem(item));
+    }
+
     state.level.gems.forEach((item) => circleWorld(item, COLORS.gem, 'gem'));
     circleWorld(state.level.spawn, COLORS.spawn, 'spawn');
-    rectWorld(state.level.exit, COLORS.exit, 'exit');
+    rectWorld(state.level.exit, COLORS.exit, state.level.exit.locked ? 'LOCKED' : 'exit');
 
+    drawDrawingPreview();
     drawSelection();
     requestAnimationFrame(draw);
 }
+
+// --- Export/Import ---
 
 function exportCode() {
     syncLevelFromForm();
     const name = ($('exportName').value || 'level5').replace(/[^a-zA-Z0-9_$]/g, '');
 
-    // Clean up internal editor properties before export
     const cleanLevel = JSON.parse(JSON.stringify(state.level));
+    // Clean up internal editor properties before export
     if (cleanLevel.hackTerminals) {
         cleanLevel.hackTerminals.forEach(t => {
             delete t.nearPlayer;
+        });
+    }
+    if (cleanLevel.enemies) {
+        cleanLevel.enemies.forEach(e => {
+            delete e._gravityInit;
+            delete e.velocityY;
+            delete e.onGround;
+            delete e.prevY;
+            delete e._animInit;
+            delete e._dying;
+            delete e._attacking;
+        });
+    }
+    if (cleanLevel.keys) {
+        cleanLevel.keys.forEach(k => {
+            delete k.collected;
+        });
+    }
+    if (cleanLevel.gems) {
+        cleanLevel.gems.forEach(g => {
+            delete g.collected;
+        });
+    }
+    if (cleanLevel.bonusBlocks) {
+        cleanLevel.bonusBlocks.forEach(b => {
+            delete b.used;
+            delete b.bumpTimer;
+            delete b.spawnRequest;
+        });
+    }
+    if (cleanLevel.checkpoints) {
+        cleanLevel.checkpoints.forEach(c => {
+            delete c.activated;
+        });
+    }
+    if (cleanLevel.enemies) {
+        cleanLevel.enemies.forEach(e => {
+            delete e.active;
         });
     }
 
@@ -519,6 +969,7 @@ function exportCode() {
 }
 
 function importLevel(text) {
+    saveUndoState();
     let source = text.trim();
     source = source.replace(/^export\s+const\s+[a-zA-Z0-9_$]+\s*=\s*/, '').replace(/;\s*$/, '');
     const parsed = Function(`"use strict"; return (${source});`)();
@@ -532,12 +983,27 @@ function importLevel(text) {
         enemies: parsed.enemies || [],
         hackTerminals: parsed.hackTerminals || [],
         checkpoints: parsed.checkpoints || [],
+        keys: parsed.keys || [],
         fx: parsed.fx || createEmptyLevel().fx,
     };
     state.selected = null;
     syncFormFromLevel();
     updatePanels();
 }
+
+function showNotification(msg) {
+    const el = document.createElement('div');
+    el.className = 'notification';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+    }, 1200);
+}
+
+// --- Event Handlers ---
 
 document.querySelectorAll('#toolButtons button').forEach((button) => {
     button.addEventListener('click', () => setTool(button.dataset.tool));
@@ -547,6 +1013,7 @@ canvas.addEventListener('mousemove', (event) => {
     const pos = screenToWorld(event.clientX, event.clientY);
     state.mouse = { x: pos.sx, y: pos.sy, worldX: pos.x, worldY: pos.y };
 
+    // Drag selected object
     if (state.dragging && state.selected && state.dragStart) {
         const dx = pos.x - state.dragStart.x;
         const dy = pos.y - state.dragStart.y;
@@ -559,7 +1026,6 @@ canvas.addEventListener('mousemove', (event) => {
             item.maxX = snap(state.dragStart.maxX + dx);
         }
 
-        // Move door/secret positions with hack terminal
         if (state.selected.group === 'hackTerminals') {
             if (item.doorX !== undefined) item.doorX = snap(state.dragStart.doorX + dx);
             if (item.doorY !== undefined) item.doorY = snap(state.dragStart.doorY + dy);
@@ -570,11 +1036,23 @@ canvas.addEventListener('mousemove', (event) => {
         updatePanels();
     }
 
+    // Drawing platform/shadowPlatform
+    if (state.drawing) {
+        updatePanels(false);
+    }
+
     updatePanels(false);
 });
 
 canvas.addEventListener('mousedown', (event) => {
     const pos = screenToWorld(event.clientX, event.clientY);
+
+    // Shift+Click: draw platform by dragging
+    if (event.shiftKey && (state.tool === 'platform' || state.tool === 'shadowPlatform')) {
+        state.drawing = true;
+        state.drawStart = { x: pos.x, y: pos.y };
+        return;
+    }
 
     if (state.tool === 'select') {
         const found = hitTest(pos.x, pos.y);
@@ -603,7 +1081,37 @@ canvas.addEventListener('mousedown', (event) => {
     addObject(state.tool, pos.x, pos.y);
 });
 
-window.addEventListener('mouseup', () => {
+canvas.addEventListener('mouseup', (event) => {
+    // Finish drawing platform
+    if (state.drawing && state.drawStart) {
+        const pos = screenToWorld(event.clientX, event.clientY);
+        const g = grid();
+        const startX = Math.min(state.drawStart.x, pos.x);
+        const startY = Math.min(state.drawStart.y, pos.y);
+        const endX = Math.max(state.drawStart.x, pos.x);
+        const endY = Math.max(state.drawStart.y, pos.y);
+        const w = Math.max(g, endX - startX);
+        const h = Math.max(g, endY - startY);
+
+        saveUndoState();
+        const type = state.tool;
+        const item = { x: startX, y: startY, width: w, height: h };
+
+        if (type === 'platform') {
+            state.level.platforms.push(item);
+            selectObject('platforms', item);
+        } else if (type === 'shadowPlatform') {
+            if (!state.level.shadowPlatforms) state.level.shadowPlatforms = [];
+            state.level.shadowPlatforms.push(item);
+            selectObject('shadowPlatforms', item);
+        }
+
+        state.drawing = false;
+        state.drawStart = null;
+        updatePanels();
+        return;
+    }
+
     state.dragging = false;
     state.dragStart = null;
 });
@@ -615,17 +1123,39 @@ canvas.addEventListener('wheel', (event) => {
 }, { passive: false });
 
 window.addEventListener('keydown', (event) => {
-    if (event.key === 'Delete' || event.key === 'Backspace') deleteSelected();
+    // Undo/Redo
+    if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+        if (event.shiftKey) {
+            redo();
+        } else {
+            undo();
+        }
+        event.preventDefault();
+        return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+        redo();
+        event.preventDefault();
+        return;
+    }
+
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Don't delete when editing input fields
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
+        deleteSelected();
+    }
+
     if (!state.selected) return;
+    // Don't move when editing input fields
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
 
     const step = event.shiftKey ? grid() * 5 : grid();
     const item = state.selected.item;
-    if (event.key === 'ArrowLeft') item.x -= step;
-    if (event.key === 'ArrowRight') item.x += step;
-    if (event.key === 'ArrowUp') item.y -= step;
-    if (event.key === 'ArrowDown') item.y += step;
+    if (event.key === 'ArrowLeft') { saveUndoState(); item.x -= step; }
+    if (event.key === 'ArrowRight') { saveUndoState(); item.x += step; }
+    if (event.key === 'ArrowUp') { saveUndoState(); item.y -= step; }
+    if (event.key === 'ArrowDown') { saveUndoState(); item.y += step; }
 
-    // Also move enemy patrol range
     if (state.selected.group === 'enemies') {
         if (event.key === 'ArrowLeft') { item.minX -= step; item.maxX -= step; }
         if (event.key === 'ArrowRight') { item.minX += step; item.maxX += step; }
@@ -642,11 +1172,13 @@ $('copyBtn').addEventListener('click', async () => {
     const code = exportCode();
     $('exportText').value = code;
     await navigator.clipboard.writeText(code);
+    showNotification('Kopiert!');
 });
 
 $('saveBtn').addEventListener('click', () => {
     syncLevelFromForm();
     localStorage.setItem('shadowrunner-level-editor', JSON.stringify(state.level));
+    showNotification('Gespeichert!');
 });
 
 $('loadBtn').addEventListener('click', () => {
@@ -656,7 +1188,11 @@ $('loadBtn').addEventListener('click', () => {
 
 $('deleteBtn').addEventListener('click', deleteSelected);
 
+$('undoBtn')?.addEventListener('click', undo);
+$('redoBtn')?.addEventListener('click', redo);
+
 $('resetBtn').addEventListener('click', () => {
+    saveUndoState();
     state.level = createEmptyLevel();
     state.selected = null;
     syncFormFromLevel();
@@ -666,6 +1202,7 @@ $('resetBtn').addEventListener('click', () => {
 $('importBtn').addEventListener('click', () => {
     try {
         importLevel($('importText').value);
+        showNotification('Importiert!');
     } catch (error) {
         alert('Import fehlgeschlagen: ' + error.message);
     }
@@ -675,10 +1212,18 @@ $('clearImportBtn').addEventListener('click', () => {
     $('importText').value = '';
 });
 
-['levelName', 'background', 'music', 'gridSize', 'levelWidth', 'fxStars', 'fxFog', 'fxRain', 'fxScanlines', 'fxNeonDust'].forEach((id) => {
+['levelName', 'background', 'music', 'gridSize', 'levelWidth', 'fxStars', 'fxFog', 'fxRain', 'fxScanlines', 'fxNeonDust', 'fxSparks', 'fxWarningLights'].forEach((id) => {
     $(id).addEventListener('input', () => updatePanels(false));
     $(id).addEventListener('change', () => updatePanels(false));
 });
+
+// Enemy type selector
+const enemyTypeSelect = $('enemyTypeSelect');
+if (enemyTypeSelect) {
+    enemyTypeSelect.addEventListener('change', () => {
+        state.currentEnemyType = enemyTypeSelect.value;
+    });
+}
 
 syncFormFromLevel();
 updatePanels();

@@ -22,6 +22,13 @@ import { showCenterMessage } from './screens.js';
 import { playSound } from './audioManager.js';
 import { getEnemySprite, AnimationState } from './spriteManager.js';
 
+// --- Enemy gravity constants ---
+const ENEMY_GRAVITY = 1600;       // slightly less than player gravity
+const ENEMY_TERMINAL_VEL = 800;   // max fall speed for enemies
+
+// Ground-based enemy types that need gravity and platform collision
+const GROUND_ENEMY_TYPES = new Set(['walker', 'shield', 'mech', 'ninja']);
+
 // --- Main Update ---
 
 export function updateEnemies(dt) {
@@ -34,6 +41,12 @@ export function updateEnemies(dt) {
 
         // Initialize animation state for sprite-based enemies
         initEnemyAnim(enemy, type);
+
+        // Apply gravity to ground-based enemies (walker, shield, mech, ninja)
+        // Drones and turrets are flying/stationary — no gravity
+        if (GROUND_ENEMY_TYPES.has(type)) {
+            updateEnemyGravity(enemy, dt, level);
+        }
 
         switch (type) {
             case 'drone':   updateDrone(enemy, dt); break;
@@ -60,6 +73,60 @@ export function updateEnemies(dt) {
                 enemy.chargeCooldown = 1.5;
             }
         }
+    }
+}
+
+// --- Enemy Gravity & Platform Collision ---
+
+/**
+ * Apply gravity to ground-based enemies and resolve platform collisions.
+ * This ensures enemies don't float in the air when placed above platforms
+ * or when shadow platforms disappear.
+ */
+function updateEnemyGravity(enemy, dt, level) {
+    // Initialize gravity state
+    if (enemy._gravityInit === undefined) {
+        enemy._gravityInit = true;
+        enemy.velocityY = enemy.velocityY ?? 0;
+        enemy.onGround = enemy.onGround ?? false;
+        enemy.prevY = enemy.y;
+    }
+
+    // Store previous Y for platform collision
+    enemy.prevY = enemy.y;
+
+    // Apply gravity
+    enemy.velocityY += ENEMY_GRAVITY * dt;
+    enemy.velocityY = Math.min(enemy.velocityY, ENEMY_TERMINAL_VEL);
+
+    // Apply vertical velocity
+    enemy.y += enemy.velocityY * dt;
+
+    // Resolve platform collisions (uses all current platforms including shadow platforms)
+    enemy.onGround = false;
+    const platforms = level.platforms || [];
+
+    for (const platform of platforms) {
+        if (!rectsOverlap(enemy, platform)) continue;
+
+        const previousBottom = enemy.prevY + enemy.height;
+        const currentBottom = enemy.y + enemy.height;
+
+        // Only land on top of platforms (falling down onto them)
+        if (
+            enemy.velocityY >= 0 &&
+            previousBottom <= platform.y + 8 &&  // small tolerance for edge cases
+            currentBottom >= platform.y
+        ) {
+            enemy.y = platform.y - enemy.height;
+            enemy.velocityY = 0;
+            enemy.onGround = true;
+        }
+    }
+
+    // Fall off the world? Deactivate enemies that fall too far
+    if (enemy.y > CONFIG.height + 400) {
+        enemy.active = false;
     }
 }
 
@@ -106,16 +173,19 @@ function updateEnemyAnim(enemy, type, dt) {
 // --- Walker (original enemy) ---
 
 function updateWalker(enemy, dt) {
-    enemy.x += enemy.speed * enemy.direction * dt;
+    // Only patrol horizontally when on the ground
+    if (enemy.onGround !== false) {
+        enemy.x += enemy.speed * enemy.direction * dt;
 
-    if (enemy.x <= enemy.minX) {
-        enemy.x = enemy.minX;
-        enemy.direction = 1;
-    }
+        if (enemy.x <= enemy.minX) {
+            enemy.x = enemy.minX;
+            enemy.direction = 1;
+        }
 
-    if (enemy.x + enemy.width >= enemy.maxX) {
-        enemy.x = enemy.maxX - enemy.width;
-        enemy.direction = -1;
+        if (enemy.x + enemy.width >= enemy.maxX) {
+            enemy.x = enemy.maxX - enemy.width;
+            enemy.direction = -1;
+        }
     }
 
     updateEnemyShooter(enemy, dt);
@@ -193,16 +263,18 @@ function updateShield(enemy, dt) {
     enemy.facingPlayer = dx > 0;
     enemy.direction = enemy.facingPlayer ? 1 : -1;
 
-    // Slow patrol movement
-    enemy.x += enemy.speed * enemy.direction * dt;
+    // Slow patrol movement (only on ground)
+    if (enemy.onGround !== false) {
+        enemy.x += enemy.speed * enemy.direction * dt;
 
-    if (enemy.x <= enemy.minX) {
-        enemy.x = enemy.minX;
-        enemy.direction = 1;
-    }
-    if (enemy.x + enemy.width >= enemy.maxX) {
-        enemy.x = enemy.maxX - enemy.width;
-        enemy.direction = -1;
+        if (enemy.x <= enemy.minX) {
+            enemy.x = enemy.minX;
+            enemy.direction = 1;
+        }
+        if (enemy.x + enemy.width >= enemy.maxX) {
+            enemy.x = enemy.maxX - enemy.width;
+            enemy.direction = -1;
+        }
     }
 
     // Shield enemies can shoot too (slower fire rate)
@@ -251,29 +323,31 @@ function updateMech(enemy, dt) {
             enemy.chargeDistance = 0;
         }
     } else {
-        // Normal slow patrol
-        enemy.x += enemy.speed * enemy.direction * dt;
+        // Normal slow patrol (only on ground)
+        if (enemy.onGround !== false) {
+            enemy.x += enemy.speed * enemy.direction * dt;
 
-        if (enemy.x <= enemy.minX) {
-            enemy.x = enemy.minX;
-            enemy.direction = 1;
-        }
-        if (enemy.x + enemy.width >= enemy.maxX) {
-            enemy.x = enemy.maxX - enemy.width;
-            enemy.direction = -1;
-        }
+            if (enemy.x <= enemy.minX) {
+                enemy.x = enemy.minX;
+                enemy.direction = 1;
+            }
+            if (enemy.x + enemy.width >= enemy.maxX) {
+                enemy.x = enemy.maxX - enemy.width;
+                enemy.direction = -1;
+            }
 
-        // Detect player in charge range
-        const dx = Math.abs((enemy.x + enemy.width / 2) - (player.x + player.width / 2));
-        const dy = Math.abs((enemy.y + enemy.height / 2) - (player.y + player.height / 2));
+            // Detect player in charge range
+            const dx = Math.abs((enemy.x + enemy.width / 2) - (player.x + player.width / 2));
+            const dy = Math.abs((enemy.y + enemy.height / 2) - (player.y + player.height / 2));
 
-        if (dx < enemy.chargeRange && dy < 120 && enemy.chargeCooldown <= 0) {
-            enemy.charging = true;
-            enemy.direction = (player.x > enemy.x) ? 1 : -1;
-            enemy.chargeDistance = 0;
+            if (dx < enemy.chargeRange && dy < 120 && enemy.chargeCooldown <= 0) {
+                enemy.charging = true;
+                enemy.direction = (player.x > enemy.x) ? 1 : -1;
+                enemy.chargeDistance = 0;
 
-            // Visual + audio feedback
-            playSound('menuSelect'); // warning sound before charge
+                // Visual + audio feedback
+                playSound('menuSelect'); // warning sound before charge
+            }
         }
     }
 
@@ -333,11 +407,14 @@ function updateNinja(enemy, dt) {
         case 'stalk':
             // Slowly approach player, keeping some distance
             enemy.direction = dx > 0 ? 1 : -1;
-            enemy.x += enemy.direction * enemy.ninjaSpeed * 0.5 * dt;
+            // Only stalk when on ground
+            if (enemy.onGround !== false) {
+                enemy.x += enemy.direction * enemy.ninjaSpeed * 0.5 * dt;
 
-            // Stay within bounds
-            if (enemy.x <= enemy.minX) { enemy.x = enemy.minX; enemy.direction = 1; }
-            if (enemy.x + enemy.width >= enemy.maxX) { enemy.x = enemy.maxX - enemy.width; enemy.direction = -1; }
+                // Stay within bounds
+                if (enemy.x <= enemy.minX) { enemy.x = enemy.minX; enemy.direction = 1; }
+                if (enemy.x + enemy.width >= enemy.maxX) { enemy.x = enemy.maxX - enemy.width; enemy.direction = -1; }
+            }
 
             // When close enough, lunge into attack
             if (dist < enemy.ninjaAttackRange && enemy.ninjaTimer <= 0) {

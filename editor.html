@@ -22,8 +22,24 @@
                 <button data-tool="enemy">Gegner</button>
                 <button data-tool="hackTerminal">Hack-Terminal</button>
                 <button data-tool="checkpoint">Checkpoint</button>
+                <button data-tool="key">Schlüssel</button>
                 <button data-tool="spawn">Spawn</button>
                 <button data-tool="exit">Exit</button>
+            </div>
+
+            <!-- Enemy type sub-tools -->
+            <div class="sub-tools" id="enemySubTools" style="display:none">
+                <h3>Gegner-Typ</h3>
+                <label>Gegner-Art
+                    <select id="enemyTypeSelect">
+                        <option value="walker">Walker (läuft)</option>
+                        <option value="drone">Drone (fliegt)</option>
+                        <option value="shield">Shield (Schild)</option>
+                        <option value="mech">Mech (stürmt)</option>
+                        <option value="turret">Turret (Geschütz)</option>
+                        <option value="ninja">Ninja (Schatten)</option>
+                    </select>
+                </label>
             </div>
 
             <h2>Level</h2>
@@ -40,13 +56,17 @@
             <label class="check"><input type="checkbox" id="fxRain"> Regen</label>
             <label class="check"><input type="checkbox" id="fxScanlines" checked> Scanlines</label>
             <label class="check"><input type="checkbox" id="fxNeonDust" checked> Neon Dust</label>
+            <label class="check"><input type="checkbox" id="fxSparks"> Funken</label>
+            <label class="check"><input type="checkbox" id="fxWarningLights"> Warnlichter</label>
 
             <h2>Aktionen</h2>
             <button id="exportBtn" class="primary">Export erzeugen</button>
             <button id="copyBtn">Export kopieren</button>
             <button id="saveBtn">Lokal speichern</button>
             <button id="loadBtn">Lokal laden</button>
-            <button id="deleteBtn" class="danger">Auswahl löschen</button>
+            <button id="undoBtn" class="undo-btn">↩ Rückgängig (Strg+Z)</button>
+            <button id="redoBtn" class="undo-btn">↪ Wiederholen (Strg+Y)</button>
+            <button id="deleteBtn" class="danger">Auswahl löschen (Entf)</button>
             <button id="resetBtn" class="danger">Editor leeren</button>
         </aside>
 
@@ -58,7 +78,7 @@
             </header>
             <canvas id="editorCanvas" width="960" height="540"></canvas>
             <footer>
-                Mausrad: Kamera · Entf: löschen · Pfeiltasten: bewegen · Shift+Drag: Plattform zeichnen
+                Mausrad: Kamera · Entf: löschen · Pfeiltasten: bewegen · Shift+Drag: Plattform zeichnen · Strg+Z/Y: Undo/Redo
                 <span id="counts">0 Objekte</span>
             </footer>
         </section>

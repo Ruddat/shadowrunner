@@ -40,6 +40,12 @@ export function initializeLevelState(level) {
             if (enemy.canShoot) {
                 enemy.shootTimer = enemy.shootDelay ?? 1.2;
             }
+
+            // Reset gravity state so enemies re-initialize on level start
+            enemy._gravityInit = undefined;
+            enemy.velocityY = undefined;
+            enemy.onGround = undefined;
+            enemy.prevY = undefined;
         }
     }
 

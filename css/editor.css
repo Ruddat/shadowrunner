@@ -1,1 +1,37 @@
-body{margin:0;background:#050510;color:#eef8ff;font-family:Arial,sans-serif;overflow:hidden}.editor-app{display:grid;grid-template-columns:260px 1fr 320px;height:100vh}.panel{background:#0d1020;padding:16px;overflow:auto;border-color:#1e3247}.left-panel{border-right:1px solid #1e3247}.right-panel{border-left:1px solid #1e3247}.panel h1,.panel h2{margin-top:0}.panel h2{margin-top:20px;font-size:14px;color:#64f4ff;text-transform:uppercase}.panel label{display:block;margin-bottom:10px;font-size:13px;color:#9fb0c4}.panel input,.panel textarea,.panel button{width:100%;box-sizing:border-box}.panel input,.panel textarea{margin-top:4px;padding:8px;border-radius:8px;border:1px solid #23374e;background:#060915;color:#eef8ff}.panel textarea{min-height:180px;resize:vertical;font-family:monospace;font-size:12px}.panel button{margin-top:8px;padding:10px;border:none;border-radius:10px;background:#17253a;color:#eef8ff;cursor:pointer}.panel button.active,.panel button:hover{background:#1f3c58}.panel button.primary{background:#8f2cff}.panel button.danger{background:#7a1f35}.check{display:flex!important;align-items:center;gap:8px}.check input{width:auto!important}.stage-panel{display:grid;grid-template-rows:auto 1fr auto;background:#05050d}.stage-panel header,.stage-panel footer{padding:10px 14px;background:#090c16;border-color:#1e3247;display:flex;gap:16px;align-items:center}.stage-panel header{border-bottom:1px solid #1e3247}.stage-panel footer{border-top:1px solid #1e3247;font-size:12px;color:#91a3bb;justify-content:space-between}canvas{width:100%;height:100%;display:block;background:#070712;image-rendering:pixelated}.tools{display:grid;gap:8px}#selectionFields{display:grid;gap:8px}
+body{margin:0;background:#050510;color:#eef8ff;font-family:Arial,sans-serif;overflow:hidden}
+.editor-app{display:grid;grid-template-columns:260px 1fr 320px;height:100vh}
+.panel{background:#0d1020;padding:16px;overflow:auto;border-color:#1e3247}
+.left-panel{border-right:1px solid #1e3247}
+.right-panel{border-left:1px solid #1e3247}
+.panel h1,.panel h2{margin-top:0}
+.panel h2{margin-top:20px;font-size:14px;color:#64f4ff;text-transform:uppercase}
+.panel label{display:block;margin-bottom:10px;font-size:13px;color:#9fb0c4}
+.panel input,.panel textarea,.panel button,.panel select{width:100%;box-sizing:border-box}
+.panel input,.panel textarea,.panel select{margin-top:4px;padding:8px;border-radius:8px;border:1px solid #23374e;background:#060915;color:#eef8ff}
+.panel select{appearance:auto}
+.panel textarea{min-height:180px;resize:vertical;font-family:monospace;font-size:12px}
+.panel button{margin-top:8px;padding:10px;border:none;border-radius:10px;background:#17253a;color:#eef8ff;cursor:pointer;font-size:13px}
+.panel button.active,.panel button:hover{background:#1f3c58}
+.panel button.primary{background:#8f2cff}
+.panel button.danger{background:#7a1f35}
+.panel button.undo-btn{background:#1a3a2e;color:#4ade80}
+.check{display:flex!important;align-items:center;gap:8px}
+.check input{width:auto!important}
+.stage-panel{display:grid;grid-template-rows:auto 1fr auto;background:#05050d}
+.stage-panel header,.stage-panel footer{padding:10px 14px;background:#090c16;border-color:#1e3247;display:flex;gap:16px;align-items:center}
+.stage-panel header{border-bottom:1px solid #1e3247}
+.stage-panel footer{border-top:1px solid #1e3247;font-size:12px;color:#91a3bb;justify-content:space-between}
+canvas{width:100%;height:100%;display:block;background:#070712;image-rendering:pixelated}
+.tools{display:grid;gap:6px;grid-template-columns:1fr 1fr}
+.tools button{font-size:11px;padding:8px 4px}
+.tools button.full-width{grid-column:1 / -1}
+#selectionFields{display:grid;gap:8px}
+#selectionFields label{font-size:11px;margin-bottom:4px}
+#selectionFields label span.field-name{color:#64f4ff;font-size:10px;display:block;margin-bottom:2px}
+#selectionFields input,#selectionFields select{padding:5px 8px;font-size:12px}
+.sub-tools{margin-top:8px;padding:8px;background:#0a0f1a;border-radius:8px;border:1px solid #1e3247}
+.sub-tools h3{margin:0 0 6px 0;font-size:12px;color:#b388ff}
+.sub-tools label{font-size:11px;margin-bottom:4px}
+.sub-tools select{margin-top:2px;padding:5px}
+.notification{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#17253a;color:#4ade80;padding:10px 24px;border-radius:10px;border:1px solid #4ade80;font-size:14px;z-index:999;opacity:0;transition:opacity 0.3s}
+.notification.show{opacity:1}
