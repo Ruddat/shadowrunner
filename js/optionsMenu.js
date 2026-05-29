@@ -25,7 +25,7 @@ import {
     setMuted,
     persistSettings,
 } from './audioManager.js';
-import { keys, isGamepadConnected } from './input.js';
+import { keys, isGamepadConnected, getGamepadId } from './input.js';
 
 const OPTIONS_ITEMS = [
     { id: 'masterVol', label: 'MASTER VOL', type: 'slider', get: getMasterVolume, set: setMasterVolume },
@@ -153,7 +153,9 @@ export function drawOptionsMenu(ctx) {
         ctx.shadowBlur = 6;
         ctx.font = '700 10px monospace';
         ctx.textAlign = 'right';
-        ctx.fillText('GAMEPAD CONNECTED', panelX + panelW - 20, panelY + 26);
+        const gpId = getGamepadId();
+        const displayName = gpId.length > 30 ? gpId.substring(0, 30) + '...' : gpId;
+        ctx.fillText('GAMEPAD: ' + displayName, panelX + panelW - 20, panelY + 26);
         ctx.restore();
     }
 
