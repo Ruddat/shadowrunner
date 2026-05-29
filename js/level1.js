@@ -1,262 +1,254 @@
 export const level1 = {
-    name: 'Neon Rooftops',
-    spawn: { x: 80, y: 252 },
-    background: 'assets/backgrounds/level1-bg.png',
-    music: 'level1',
-
-    platforms: [
-        { x: 0, y: 412, width: 620, height: 40 },
-        { x: 720, y: 362, width: 260, height: 32 },
-        { x: 1080, y: 312, width: 300, height: 32 },
-        { x: 1500, y: 382, width: 500, height: 40 },
-        { x: 2100, y: 322, width: 300, height: 32 },
-        { x: 2500, y: 402, width: 700, height: 40 },
+    "name": "Neon Rooftops",
+    "spawn": {
+        "x": 280,
+        "y": 140
+    },
+    "background": "assets/backgrounds/level1-bg.png",
+    "music": "level1",
+    "platforms": [
+        {
+            "x": 0,
+            "y": 412,
+            "width": 620,
+            "height": 40
+        },
+        {
+            "x": 720,
+            "y": 362,
+            "width": 260,
+            "height": 32
+        },
+        {
+            "x": 1080,
+            "y": 312,
+            "width": 300,
+            "height": 32
+        },
+        {
+            "x": 1500,
+            "y": 382,
+            "width": 500,
+            "height": 40
+        },
+        {
+            "x": 2100,
+            "y": 322,
+            "width": 300,
+            "height": 32
+        },
+        {
+            "x": 2500,
+            "y": 402,
+            "width": 700,
+            "height": 40
+        }
     ],
-
-    shadowPlatforms: [
+    "shadowPlatforms": [],
+    "gems": [
         {
-            x: 930,
-            y: 240,
-            width: 140,
-            height: 24,
+            "x": 240,
+            "y": 342
         },
         {
-            x: 1390,
-            y: 180,
-            width: 140,
-            height: 24,
+            "x": 330,
+            "y": 342
         },
         {
-            x: 2320,
-            y: 220,
-            width: 160,
-            height: 24,
+            "x": 760,
+            "y": 300
         },
+        {
+            "x": 820,
+            "y": 300
+        },
+        {
+            "x": 1160,
+            "y": 242
+        },
+        {
+            "x": 1270,
+            "y": 242
+        },
+        {
+            "x": 1620,
+            "y": 312
+        },
+        {
+            "x": 1740,
+            "y": 312
+        },
+        {
+            "x": 2120,
+            "y": 260
+        },
+        {
+            "x": 2580,
+            "y": 332
+        },
+        {
+            "x": 2700,
+            "y": 332
+        },
+        {
+            "x": 2860,
+            "y": 332
+        },
+        {
+            "x": 880,
+            "y": 300
+        },
+        {
+            "x": 920,
+            "y": 300
+        },
+        {
+            "x": 2200,
+            "y": 260
+        },
+        {
+            "x": 2280,
+            "y": 260
+        },
+        {
+            "x": 2360,
+            "y": 260
+        },
+        {
+            "x": 2800,
+            "y": 340
+        },
+        {
+            "x": 2960,
+            "y": 340
+        }
     ],
-
-    gems: [
-        { x: 240, y: 342, collected: false },
-        { x: 330, y: 342, collected: false },
-
-        { x: 790, y: 292, collected: false },
-        { x: 890, y: 292, collected: false },
-
-        { x: 1160, y: 242, collected: false },
-        { x: 1270, y: 242, collected: false },
-
-        { x: 1620, y: 312, collected: false },
-        { x: 1740, y: 312, collected: false },
-
-        { x: 2180, y: 252, collected: false },
-
-        { x: 2580, y: 332, collected: false },
-        { x: 2700, y: 332, collected: false },
-        { x: 2860, y: 332, collected: false },
-    ],
-
-    bonusBlocks: [
+    "bonusBlocks": [
         {
-            x: 520,
-            y: 282,
-            width: 42,
-            height: 42,
-            used: false,
-            bumpTimer: 0,
-            reward: 'gem',
+            "x": 1180,
+            "y": 152,
+            "width": 42,
+            "height": 42,
+            "reward": "weapon",
+            "weaponId": "spread"
         },
-
         {
-            x: 1180,
-            y: 152,
-            width: 42,
-            height: 42,
-            used: false,
-            bumpTimer: 0,
-            reward: 'weapon',
-            weaponId: 'spread',
+            "x": 1660,
+            "y": 240,
+            "width": 42,
+            "height": 42,
+            "reward": "weapon",
+            "weaponId": "laser"
         },
-
         {
-            x: 1740,
-            y: 252,
-            width: 42,
-            height: 42,
-            used: false,
-            bumpTimer: 0,
-            reward: 'weapon',
-            weaponId: 'laser',
-        },
-
-        {
-            x: 2260,
-            y: 202,
-            width: 42,
-            height: 42,
-            used: false,
-            bumpTimer: 0,
-            reward: 'random',
-            randomPool: [
-                'gem',
-                'energy',
-                'life',
-                'weapon',
+            "x": 2260,
+            "y": 202,
+            "width": 42,
+            "height": 42,
+            "reward": "random",
+            "randomPool": [
+                "gem",
+                "energy",
+                "life",
+                "weapon"
             ],
-            weaponId: 'wave',
+            "weaponId": "wave"
         },
+        {
+            "x": 1720,
+            "y": 240,
+            "width": 42,
+            "height": 42,
+            "reward": "gem"
+        },
+        {
+            "x": 1780,
+            "y": 240,
+            "width": 42,
+            "height": 42,
+            "reward": "gem"
+        }
     ],
-
-    keys: [
-        { x: 640, y: 320 },
-        { x: 1460, y: 320 },
-        { x: 2480, y: 340 },
+    "enemies": [
+        {
+            "type": "turret",
+            "canShoot": true,
+            "shootDelay": 1,
+            "shootRangeX": 600,
+            "shootRangeY": 400,
+            "projectileSpeed": 380,
+            "projectileColor": "#a855f7",
+            "x": 2720,
+            "y": 360,
+            "width": 42,
+            "height": 42,
+            "minX": 2720,
+            "maxX": 2760,
+            "speed": 0,
+            "direction": 1,
+            "health": 4
+        }
     ],
-
-    checkpoints: [
-        { x: 1500, y: 340, width: 60, height: 80, activated: false },
-        { x: 2500, y: 360, width: 60, height: 80, activated: false },
+    "hackTerminals": [
+        {
+            "x": 2180,
+            "y": 260,
+            "width": 36,
+            "height": 52,
+            "difficulty": "easy",
+            "reward": "secret_area",
+            "targetId": "deactivate",
+            "hacked": false
+        }
     ],
-
-    hackTerminals: [
+    "checkpoints": [
         {
-            x: 730,
-            y: 310,
-            width: 36,
-            height: 52,
-            difficulty: 'easy',
-            reward: 'deactivate_enemies',
-            targetId: 'deactivate',
-            hacked: false,
-            nearPlayer: false,
-        },
+            "x": 1880,
+            "y": 300,
+            "width": 60,
+            "height": 80
+        }
     ],
-
-    shopTerminals: [
+    "keys": [
         {
-            x: 2080,
-            y: 262,
-            width: 44,
-            height: 60,
-            singleUse: false,
-            nearPlayer: false,
+            "x": 640,
+            "y": 320
         },
+        {
+            "x": 1540,
+            "y": 300
+        },
+        {
+            "x": 2480,
+            "y": 340
+        }
     ],
-
-    enemies: [
-        {
-            canShoot: true,
-            shootDelay: 1.4,
-            shootRangeX: 560,
-            shootRangeY: 180,
-            projectileSpeed: 340,
-            projectileColor: '#ff003c',
-            x: 820,
-            y: 312,
-            width: 46,
-            height: 50,
-            minX: 730,
-            maxX: 930,
-            speed: 90,
-            direction: 1,
-            health: 2,
-        },
-        {
-            shadowOnly: true,
-            x: 360,
-            y: 362,
-            width: 46,
-            height: 50,
-            minX: 260,
-            maxX: 560,
-            speed: 120,
-            direction: 1,
-            health: 4,
-        },
-        {
-            type: 'drone',
-            canShoot: true,
-            shootDelay: 2.2,
-            shootRangeX: 400,
-            shootRangeY: 200,
-            projectileSpeed: 280,
-            projectileColor: '#ff6b00',
-            x: 1200,
-            y: 200,
-            width: 38,
-            height: 38,
-            minX: 1080,
-            maxX: 1380,
-            speed: 70,
-            direction: 1,
-            health: 2,
-        },
-        {
-            x: 1660,
-            y: 332,
-            width: 46,
-            height: 50,
-            minX: 1520,
-            maxX: 1960,
-            speed: 120,
-            direction: 1,
-            health: 3,
-        },
-        {
-            x: 1600,
-            y: 332,
-            width: 46,
-            height: 50,
-            minX: 1520,
-            maxX: 1960,
-            speed: 120,
-            direction: 1,
-            health: 5,
-        },
-        {
-            type: 'turret',
-            canShoot: true,
-            shootDelay: 1.0,
-            shootRangeX: 600,
-            shootRangeY: 400,
-            projectileSpeed: 380,
-            projectileColor: '#a855f7',
-            x: 2400,
-            y: 362,
-            width: 42,
-            height: 42,
-            minX: 2400,
-            maxX: 2442,
-            speed: 0,
-            direction: 1,
-            health: 4,
-        },
-        {
-            x: 2660,
-            y: 352,
-            width: 46,
-            height: 50,
-            minX: 2520,
-            maxX: 3050,
-            speed: 140,
-            direction: -1,
-            health: 4,
-        },
-    ],
-
-    fx: {
-        stars: true,
-        fog: true,
-        rain: false,
-        scanlines: true,
-        neonDust: true,
+    "fx": {
+        "stars": false,
+        "fog": false,
+        "rain": false,
+        "scanlines": false,
+        "neonDust": false,
+        "sparks": true,
+        "warningLights": true
     },
-
-    exit: {
-        x: 3060,
-        y: 302,
-        width: 70,
-        height: 100,
-        locked: true,
-        keysRequired: 3,
-        unlockMode: 'allGemsOrEnemiesOrKeys',
+    "exit": {
+        "x": 3060,
+        "y": 302,
+        "width": 70,
+        "height": 100,
+        "locked": true,
+        "keysRequired": 3,
+        "unlockMode": "allGems"
     },
+    "shopTerminals": [
+        {
+            "x": 2080,
+            "y": 262,
+            "width": 44,
+            "height": 60,
+            "singleUse": false,
+            "nearPlayer": false
+        }
+    ]
 };

@@ -1,6 +1,6 @@
 export const level3 = {
     name: 'Neon Factory',
-    music: 'level2',
+    music: 'level3',
     spawn: { x: 80, y: 252 },
     background: 'assets/backgrounds/level3-bg.png',
 

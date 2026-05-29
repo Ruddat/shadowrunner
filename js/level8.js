@@ -2,7 +2,7 @@ export const level8 = {
     name: 'Cipher Deep',
     music: 'level4',
     spawn: { x: 80, y: 252 },
-    background: 'assets/backgrounds/level3-bg.png',
+    background: 'assets/backgrounds/level8-bg.png',
 
     platforms: [
         // Starting area

@@ -3,7 +3,7 @@ export const level4Boss = {
     mode: 'boss',
     music: 'level4',
     spawn: { x: 80, y: 252 },
-    background: 'assets/backgrounds/level3-bg.png',
+    background: 'assets/backgrounds/level4boss.png',
 
     platforms: [
         // Main arena floor

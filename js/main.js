@@ -144,6 +144,7 @@ state.levelStats = createLevelStats(state.currentLevel);
 registerMusic('title', 'assets/audio/title-theme.mp3');
 registerMusic('level1', 'assets/audio/level1-theme.mp3');
 registerMusic('level2', 'assets/audio/level2-theme.mp3');
+registerMusic('level3', 'assets/audio/level3-theme.mp3');
 registerMusic('level4', 'assets/audio/level4-boss-theme.mp3');
 registerMusic('levelComplete', 'assets/audio/level-complete.mp3', false);
 registerMusic('gameOver', 'assets/audio/game-over.mp3', false);
