@@ -46,14 +46,24 @@ let speedrunEnabled = false;
 function isSpeedrunEnabled() { return speedrunEnabled; }
 function setSpeedrunEnabled(v) { speedrunEnabled = v; }
 
+// Flag: when fullscreen is toggled in the keydown gesture handler,
+// the rAF-based options menu should skip its own requestFullscreen call
+// (otherwise it would undo the toggle or fail silently).
+let fullscreenGestureHandled = false;
+
 function isFullscreen() {
     return !!document.fullscreenElement;
 }
 
 function toggleFullscreen(v) {
+    // If fullscreen was already toggled in the keydown gesture context,
+    // skip the API call here (rAF is not a user gesture context).
+    if (fullscreenGestureHandled) {
+        fullscreenGestureHandled = false;
+        return;
+    }
     const canvas = document.getElementById('game');
     if (v && !document.fullscreenElement) {
-        // Go fullscreen on the canvas directly — eliminates browser UI
         const target = canvas.requestFullscreen ? canvas :
                        canvas.webkitRequestFullscreen ? canvas :
                        document.documentElement;
@@ -61,6 +71,18 @@ function toggleFullscreen(v) {
     } else if (!v && document.fullscreenElement) {
         (document.exitFullscreen || document.webkitExitFullscreen)?.().catch(() => {});
     }
+}
+
+// Check if the FULLSCREEN option is currently selected in the options menu.
+// Used by main.js to handle requestFullscreen in the keydown gesture context.
+export function isFullscreenOptionSelected() {
+    return currentMenu === MENU_MAIN && MAIN_ITEMS[selectedIndex]?.id === 'fullscreen';
+}
+
+// Mark that fullscreen was already handled in the keydown gesture context.
+// The rAF-based toggleFullscreen will see this and skip its own API call.
+export function markFullscreenHandled() {
+    fullscreenGestureHandled = true;
 }
 
 // Resize canvas to fill available space while maintaining 16:9 aspect ratio

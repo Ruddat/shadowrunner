@@ -111,7 +111,7 @@ import {
 import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 
 // Options Menu
-import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput, setupFullscreenResize } from './optionsMenu.js';
+import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput, setupFullscreenResize, isFullscreenOptionSelected, markFullscreenHandled } from './optionsMenu.js';
 
 // Speedrun timer helpers
 import { formatTime, getBestTime } from './hudSystem.js';
@@ -962,6 +962,22 @@ function loop(timestamp) {
 // --- Event Handlers ---
 
 window.addEventListener('keydown', (e) => {
+    // Fullscreen API requires a user gesture context (keydown/click).
+    // The options menu processes input in the rAF loop, where requestFullscreen
+    // is NOT allowed. So we intercept fullscreen toggles here in the keydown handler.
+    if (state.optionsOpen && isFullscreenOptionSelected()) {
+        const toggleKeys = ['ArrowLeft', 'ArrowRight', 'Space', 'Enter', 'KeyE', 'KeyF', 'KeyW', 'KeyA', 'KeyD'];
+        if (toggleKeys.includes(e.code)) {
+            const canvas = document.getElementById('game');
+            if (!document.fullscreenElement) {
+                (canvas.requestFullscreen || canvas.webkitRequestFullscreen)?.().catch(() => {});
+            } else {
+                (document.exitFullscreen || document.webkitExitFullscreen)?.().catch(() => {});
+            }
+            markFullscreenHandled(); // tell rAF handler to skip its own call
+        }
+    }
+
     // Options menu handles its own keyboard input
     if (state.optionsOpen) return;
 
