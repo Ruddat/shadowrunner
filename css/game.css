@@ -21,3 +21,22 @@ canvas {
     background: #080816;
     box-shadow: 0 0 40px rgba(255, 0, 180, .35);
 }
+
+/* Fullscreen: scale canvas to fill screen while maintaining 16:9 aspect */
+:fullscreen canvas,
+:-webkit-full-screen canvas {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    box-shadow: none;
+}
+
+/* When the document itself is fullscreen (requestFullscreen on documentElement) */
+:fullscreen body,
+:-webkit-full-screen body {
+    background: #000;
+}
+
+:fullscreen {
+    background: #000;
+}

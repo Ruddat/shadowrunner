@@ -58,6 +58,40 @@ function toggleFullscreen(v) {
     }
 }
 
+// Listen for fullscreen changes to resize canvas properly
+export function setupFullscreenResize() {
+    const canvas = document.getElementById('game');
+    const BASE_W = 960;
+    const BASE_H = 540;
+
+    function resizeForFullscreen() {
+        if (document.fullscreenElement) {
+            const screenW = screen.width;
+            const screenH = screen.height;
+            // Scale to fill screen maintaining 16:9 aspect
+            const scale = Math.min(screenW / BASE_W, screenH / BASE_H);
+            const displayW = BASE_W * scale;
+            const displayH = BASE_H * scale;
+
+            canvas.style.width = displayW + 'px';
+            canvas.style.height = displayH + 'px';
+            canvas.style.position = 'absolute';
+            canvas.style.left = ((screenW - displayW) / 2) + 'px';
+            canvas.style.top = ((screenH - displayH) / 2) + 'px';
+        } else {
+            // Reset to default
+            canvas.style.width = '960px';
+            canvas.style.height = '540px';
+            canvas.style.position = '';
+            canvas.style.left = '';
+            canvas.style.top = '';
+        }
+    }
+
+    document.addEventListener('fullscreenchange', resizeForFullscreen);
+    document.addEventListener('webkitfullscreenchange', resizeForFullscreen);
+}
+
 // Load speedrun setting
 try {
     const saved = JSON.parse(localStorage.getItem('shadowrunner_settings') || '{}');

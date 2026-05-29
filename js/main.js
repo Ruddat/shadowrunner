@@ -111,7 +111,7 @@ import {
 import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 
 // Options Menu
-import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput } from './optionsMenu.js';
+import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput, setupFullscreenResize } from './optionsMenu.js';
 
 // Speedrun timer helpers
 import { formatTime, getBestTime } from './hudSystem.js';
@@ -166,6 +166,7 @@ initLevelFx();
 initNeonSync(); // Neon-Sync: AudioContext + AnalyserNode
 initPlayerSprite(); // Load player sprite sheet
 initEnemySprites(); // Load enemy sprite sheets
+setupFullscreenResize(); // Fullscreen canvas resize handler
 
 // --- Update ---
 
