@@ -15,23 +15,28 @@ body {
 }
 
 canvas {
+    /* Default size — will be overridden by JS resize handler */
     width: 960px;
     height: 540px;
     image-rendering: pixelated;
+    image-rendering: crisp-edges;
     background: #080816;
     box-shadow: 0 0 40px rgba(255, 0, 180, .35);
 }
 
-/* Fullscreen: scale canvas to fill screen while maintaining 16:9 aspect */
+/* Fullscreen: canvas fills entire screen with letterboxing */
 :fullscreen canvas,
 :-webkit-full-screen canvas {
-    width: 100vw;
-    height: 100vh;
-    object-fit: contain;
     box-shadow: none;
 }
 
-/* When the document itself is fullscreen (requestFullscreen on documentElement) */
+/* When the canvas itself is the fullscreen element */
+canvas:fullscreen,
+canvas:-webkit-full-screen {
+    box-shadow: none;
+    cursor: none;
+}
+
 :fullscreen body,
 :-webkit-full-screen body {
     background: #000;
@@ -39,4 +44,12 @@ canvas {
 
 :fullscreen {
     background: #000;
+}
+
+/* Prevent text selection and touch callouts during gameplay */
+canvas {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
 }

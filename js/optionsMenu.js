@@ -51,45 +51,81 @@ function isFullscreen() {
 }
 
 function toggleFullscreen(v) {
+    const canvas = document.getElementById('game');
     if (v && !document.fullscreenElement) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
+        // Go fullscreen on the canvas directly — eliminates browser UI
+        const target = canvas.requestFullscreen ? canvas :
+                       canvas.webkitRequestFullscreen ? canvas :
+                       document.documentElement;
+        (target.requestFullscreen || target.webkitRequestFullscreen)?.().catch(() => {});
     } else if (!v && document.fullscreenElement) {
-        document.exitFullscreen?.().catch(() => {});
+        (document.exitFullscreen || document.webkitExitFullscreen)?.().catch(() => {});
     }
 }
 
-// Listen for fullscreen changes to resize canvas properly
+// Resize canvas to fill available space while maintaining 16:9 aspect ratio
 export function setupFullscreenResize() {
     const canvas = document.getElementById('game');
     const BASE_W = 960;
     const BASE_H = 540;
 
-    function resizeForFullscreen() {
-        if (document.fullscreenElement) {
-            const screenW = screen.width;
-            const screenH = screen.height;
-            // Scale to fill screen maintaining 16:9 aspect
-            const scale = Math.min(screenW / BASE_W, screenH / BASE_H);
-            const displayW = BASE_W * scale;
-            const displayH = BASE_H * scale;
+    function resizeCanvas() {
+        const isFS = !!document.fullscreenElement;
 
-            canvas.style.width = displayW + 'px';
-            canvas.style.height = displayH + 'px';
-            canvas.style.position = 'absolute';
-            canvas.style.left = ((screenW - displayW) / 2) + 'px';
-            canvas.style.top = ((screenH - displayH) / 2) + 'px';
+        if (isFS) {
+            // Use window dimensions (accounts for DPI and actual available space)
+            const availW = window.innerWidth;
+            const availH = window.innerHeight;
+
+            // Scale to fill screen maintaining 16:9 aspect
+            const scale = Math.min(availW / BASE_W, availH / BASE_H);
+            const displayW = Math.round(BASE_W * scale);
+            const displayH = Math.round(BASE_H * scale);
+
+            // When canvas itself is fullscreen, it fills the whole screen
+            // We center the 16:9 content within it
+            canvas.style.width = availW + 'px';
+            canvas.style.height = availH + 'px';
+            canvas.style.objectFit = 'contain';
+            canvas.style.imageRendering = 'pixelated';
+            canvas.style.background = '#000';
         } else {
-            // Reset to default
-            canvas.style.width = '960px';
-            canvas.style.height = '540px';
-            canvas.style.position = '';
-            canvas.style.left = '';
-            canvas.style.top = '';
+            // Normal windowed mode — scale to fit window while maintaining aspect
+            resizeWindowed();
         }
     }
 
-    document.addEventListener('fullscreenchange', resizeForFullscreen);
-    document.addEventListener('webkitfullscreenchange', resizeForFullscreen);
+    function resizeWindowed() {
+        const availW = window.innerWidth;
+        const availH = window.innerHeight;
+        const maxScale = Math.min(availW / BASE_W, availH / BASE_H);
+        // Integer scaling for pixel-perfect look (1x, 2x, 3x...)
+        const intScale = Math.max(1, Math.floor(maxScale));
+        const displayW = BASE_W * intScale;
+        const displayH = BASE_H * intScale;
+
+        canvas.style.width = displayW + 'px';
+        canvas.style.height = displayH + 'px';
+        canvas.style.position = '';
+        canvas.style.left = '';
+        canvas.style.top = '';
+        canvas.style.objectFit = '';
+        canvas.style.background = '';
+    }
+
+    // Listen for fullscreen enter/exit
+    document.addEventListener('fullscreenchange', resizeCanvas);
+    document.addEventListener('webkitfullscreenchange', resizeCanvas);
+
+    // Also handle window resize in windowed mode
+    window.addEventListener('resize', () => {
+        if (!document.fullscreenElement) {
+            resizeWindowed();
+        }
+    });
+
+    // Initial sizing
+    resizeWindowed();
 }
 
 // Load speedrun setting
