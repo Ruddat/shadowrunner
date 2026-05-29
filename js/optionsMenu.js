@@ -210,9 +210,9 @@ function drawOptionItem(ctx, x, y, width, height, item, isSelected) {
     ctx.fillText(item.label, x + 14, y + height / 2 + 1);
 
     if (item.type === 'slider') {
-        drawSlider(ctx, x + 200, y + 10, width - 220, height - 20, item.get(), item.set, isSelected);
+        drawSlider(ctx, x + 200, y + 10, width - 220, height - 20, item.get, item.set, isSelected);
     } else if (item.type === 'toggle') {
-        drawToggle(ctx, x + width - 80, y + 8, 60, height - 16, item.get(), item.set, isSelected);
+        drawToggle(ctx, x + width - 80, y + 8, 60, height - 16, item.get, item.set, isSelected);
     } else if (item.type === 'action') {
         ctx.fillStyle = isSelected ? '#21e6ff' : 'rgba(33, 230, 255, 0.4)';
         ctx.font = '700 12px monospace';

@@ -82,11 +82,12 @@ function createRaindrop() {
 }
 
 function createRainSplash(x, y) {
+    const maxLife = 0.3 + Math.random() * 0.2;
     return {
         x,
         y,
-        life: 0.3 + Math.random() * 0.2,
-        maxLife: 0.3 + Math.random() * 0.2,
+        life: maxLife,
+        maxLife,
         size: 2 + Math.random() * 3,
     };
 }
@@ -356,7 +357,7 @@ function drawRain(ctx, camera, config) {
         ctx.lineWidth = 1;
 
         // Splash ring
-        const radius = splash.size * (1 - ratio) * 4;
+        const radius = Math.max(0.1, splash.size * (1 - ratio) * 4);
         ctx.beginPath();
         ctx.arc(wx, splash.y, radius, Math.PI, Math.PI * 2);
         ctx.stroke();
