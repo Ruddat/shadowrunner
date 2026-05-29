@@ -792,7 +792,7 @@ function drawPlayerWithEffects() {
 }
 
 function render() {
-    const { currentLevel, camera } = state;
+    const { currentLevel, camera, player } = state;
 
     if (state.gameState === 'intro') {
         drawIntro(ctx, state.introTime);
