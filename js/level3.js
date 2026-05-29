@@ -113,6 +113,17 @@ export const level3 = {
         },
     ],
 
+    shopTerminals: [
+        {
+            x: 3120,
+            y: 272,
+            width: 44,
+            height: 60,
+            singleUse: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         {
             x: 690,

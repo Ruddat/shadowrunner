@@ -130,6 +130,17 @@ export const level1 = {
         },
     ],
 
+    shopTerminals: [
+        {
+            x: 2080,
+            y: 262,
+            width: 44,
+            height: 60,
+            singleUse: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         {
             canShoot: true,

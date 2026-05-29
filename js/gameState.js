@@ -43,4 +43,7 @@ export const state = {
 
     // Hacking minigame state
     hackingState: null,
+
+    // Shop state
+    shopOpen: false,
 };

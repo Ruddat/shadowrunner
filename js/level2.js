@@ -191,6 +191,17 @@ export const level2 = {
         },
     ],
 
+    shopTerminals: [
+        {
+            x: 2620,
+            y: 342,
+            width: 44,
+            height: 60,
+            singleUse: false,
+            nearPlayer: false,
+        },
+    ],
+
     enemies: [
         // Erster Gegner: leicht
         {

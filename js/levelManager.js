@@ -25,6 +25,7 @@ import { isShieldBlocking, damageShield } from './enemySystem.js';
 import { initLevelFx } from './levelFx.js';
 import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
 import { deleteSave } from './saveSystem.js';
+import { resetShopPurchases } from './shopSystem.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
@@ -119,6 +120,7 @@ export function loadNextLevel() {
     initializeLevelState(state.currentLevel);
     player.deathsThisLevel = 0;
     state.levelStats = createLevelStats(state.currentLevel);
+    resetShopPurchases();
 }
 
 /**

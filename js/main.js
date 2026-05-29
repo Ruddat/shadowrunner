@@ -91,6 +91,22 @@ import {
     abortHacking,
 } from './hackingMinigame.js';
 
+// Shop System
+import {
+    isShopOpen,
+    openShop,
+    closeShop,
+    updateShop,
+    drawShop,
+    updateShopTerminals,
+    drawShopTerminals,
+    updatePlayerBuffs,
+    drawBuffIndicators,
+    drawShopButtonOnLevelComplete,
+    handleShopKeyOnLevelComplete,
+    resetShopPurchases,
+} from './shopSystem.js';
+
 // Sprite System
 import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 
@@ -179,6 +195,14 @@ function update(dt) {
         return;
     }
 
+    // Shop: freeze normal gameplay, run shop update
+    if (isShopOpen()) {
+        updateShop(dt);
+        state.shopOpen = true;
+        return;
+    }
+    state.shopOpen = false;
+
     player.update(dt, state.currentLevel);
 
     if (player.isGameOver) {
@@ -214,6 +238,8 @@ function update(dt) {
     updateFloatingItems(dt);
     updatePowerupPickup();
     updateHackTerminals();
+    updateShopTerminals(player, state.currentLevel);
+    updatePlayerBuffs(player, dt, state.currentLevel);
     updatePendingLevelComplete(dt);
     updateParticles(dt);
 
@@ -811,6 +837,15 @@ function render() {
         drawPlayerWithEffects();
         drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
         drawLevelCompleteScreen();
+        // Shop button on level complete screen
+        if (!isShopOpen()) {
+            drawShopButtonOnLevelComplete(ctx);
+        }
+        // Shop overlay on top of level complete
+        if (isShopOpen()) {
+            updateShop(0); // ensure state is current
+            drawShop(ctx);
+        }
         return;
     }
 
@@ -839,6 +874,12 @@ function render() {
     // Hack terminals
     drawHackTerminals(ctx, camera);
 
+    // Shop terminals
+    drawShopTerminals(ctx, camera);
+
+    // Buff indicators
+    drawBuffIndicators(ctx, player);
+
     // Pause overlay
     if (state.paused) {
         drawPauseOverlay();
@@ -847,6 +888,11 @@ function render() {
     // Hacking minigame overlay (renders on top of everything)
     if (isHacking()) {
         drawHacking(ctx);
+    }
+
+    // Shop overlay (renders on top of everything, even hacking)
+    if (isShopOpen()) {
+        drawShop(ctx);
     }
 }
 
@@ -921,6 +967,10 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (state.gameState === 'levelComplete' && e.code === 'Enter') {
+        // If shop is open, close it first
+        if (isShopOpen()) {
+            closeShop();
+        }
         loadNextLevel(); // handles stopping old music + starting new
         if (state.gameState === 'credits') {
             playMusic('credits');
@@ -928,6 +978,13 @@ window.addEventListener('keydown', (e) => {
         }
         state.gameState = 'playing';
         return;
+    }
+
+    // Shop access on Level Complete screen
+    if (state.gameState === 'levelComplete') {
+        if (handleShopKeyOnLevelComplete(e.code)) {
+            return;
+        }
     }
 
     if (state.gameState === 'gameOver') {

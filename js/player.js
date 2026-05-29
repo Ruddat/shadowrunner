@@ -9,6 +9,7 @@ import { rectsOverlap } from './collision.js';
 import { showCenterMessage } from './screens.js';
 import { state } from './gameState.js';
 import { getPlayerSprite, AnimationState } from './spriteManager.js';
+import { getSpeedMultiplier, getDamageReduction, tryDoubleJump } from './shopSystem.js';
 
 export class Player {
     constructor(x, y) {
@@ -64,6 +65,13 @@ export class Player {
         // Sprite animation
         this.anim = new AnimationState();
         this.useSprites = true; // Set to false to fall back to canvas drawing
+
+        // Shop buff timers
+        this._magnetTimer = 0;
+        this._shieldTimer = 0;
+        this._speedBoostTimer = 0;
+        this._doubleJumpCharges = 0;
+        this._doubleJumpAvailable = true;
     }
 
     update(dt, level) {
@@ -76,13 +84,15 @@ export class Player {
         // --- Horizontal movement ---
         this.velocityX = 0;
 
+        const moveSpeed = CONFIG.moveSpeed * getSpeedMultiplier(this);
+
         if (keys.left) {
-            this.velocityX = -CONFIG.moveSpeed;
+            this.velocityX = -moveSpeed;
             this.facing = -1;
         }
 
         if (keys.right) {
-            this.velocityX = CONFIG.moveSpeed;
+            this.velocityX = moveSpeed;
             this.facing = 1;
         }
 
@@ -103,6 +113,19 @@ export class Player {
         if (keys.jump && this.onGround) {
             this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 1.06 : -CONFIG.jumpForce;
             this.onGround = false;
+        } else if (keys.jump && !this.onGround && this._doubleJumpAvailable) {
+            // Double Jump from Shop
+            if (tryDoubleJump(this)) {
+                this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 0.9 : -CONFIG.jumpForce * 0.85;
+                this._doubleJumpAvailable = false;
+                spawnParticles(this.x + this.width / 2, this.y + this.height, 12, '#a855f7');
+                showCenterMessage('DOUBLE JUMP', 0.5);
+            }
+        }
+
+        // Reset double jump availability when on ground
+        if (this.onGround) {
+            this._doubleJumpAvailable = true;
         }
 
         // --- Wall-Jump / Wall-Slide ---
@@ -420,7 +443,10 @@ export class Player {
         if (this.isGameOver) return;
         if (this.invincibleTimer > 0) return;
 
-        const finalDamage = this.shadowShift ? damage * 0.75 : damage;
+        // Apply shop shield damage reduction
+        const shieldReduction = getDamageReduction(this);
+        let finalDamage = this.shadowShift ? damage * 0.75 : damage;
+        finalDamage = finalDamage * (1 - shieldReduction);
 
         this.energy = Math.max(0, this.energy - finalDamage);
         this.invincibleTimer = 1.0;
