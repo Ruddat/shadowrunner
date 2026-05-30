@@ -296,35 +296,30 @@ function addObject(type, x, y) {
         item = { x, y, width: 220, height: 32 };
         state.level.platforms.push(item);
         selectObject('platforms', item);
-    }
 
-    if (type === 'shadowPlatform') {
+    } else if (type === 'shadowPlatform') {
         item = { x, y, width: 160, height: 24 };
         if (!state.level.shadowPlatforms) state.level.shadowPlatforms = [];
         state.level.shadowPlatforms.push(item);
         selectObject('shadowPlatforms', item);
-    }
 
-    if (type === 'gem') {
+    } else if (type === 'gem') {
         item = { x, y, collected: false };
         state.level.gems.push(item);
         selectObject('gems', item);
-    }
 
-    if (type === 'bonusBlock') {
+    } else if (type === 'bonusBlock') {
         item = { x, y, width: 42, height: 42, used: false, bumpTimer: 0, reward: 'gem' };
         state.level.bonusBlocks.push(item);
         selectObject('bonusBlocks', item);
-    }
 
-    if (type === 'enemy') {
+    } else if (type === 'enemy') {
         const enemyType = state.currentEnemyType || 'walker';
         item = createEnemyByType(enemyType, x, y);
         state.level.enemies.push(item);
         selectObject('enemies', item);
-    }
 
-    if (type === 'hackTerminal') {
+    } else if (type === 'hackTerminal') {
         item = {
             x, y,
             width: 36,
@@ -338,9 +333,8 @@ function addObject(type, x, y) {
         if (!state.level.hackTerminals) state.level.hackTerminals = [];
         state.level.hackTerminals.push(item);
         selectObject('hackTerminals', item);
-    }
 
-    if (type === 'shopTerminal') {
+    } else if (type === 'shopTerminal') {
         item = {
             x, y,
             width: 44,
@@ -351,28 +345,24 @@ function addObject(type, x, y) {
         if (!state.level.shopTerminals) state.level.shopTerminals = [];
         state.level.shopTerminals.push(item);
         selectObject('shopTerminals', item);
-    }
 
-    if (type === 'checkpoint') {
+    } else if (type === 'checkpoint') {
         item = { x, y, width: 60, height: 80, activated: false };
         if (!state.level.checkpoints) state.level.checkpoints = [];
         state.level.checkpoints.push(item);
         selectObject('checkpoints', item);
-    }
 
-    if (type === 'key') {
+    } else if (type === 'key') {
         item = { x, y, width: 26, height: 26, collected: false };
         if (!state.level.keys) state.level.keys = [];
         state.level.keys.push(item);
         selectObject('keys', item);
-    }
 
-    if (type === 'spawn') {
+    } else if (type === 'spawn') {
         state.level.spawn = { x, y };
         selectObject('spawn', state.level.spawn);
-    }
 
-    if (type === 'exit') {
+    } else if (type === 'exit') {
         state.level.exit = { x, y, width: 70, height: 100, locked: false };
         selectObject('exit', state.level.exit);
     }

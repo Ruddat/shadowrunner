@@ -151,9 +151,10 @@ export function isShopOpen() {
  * Open the shop (from terminal or between levels).
  * @param {'terminal'|'between'} source - How the shop was opened
  */
-export function openShop(source = 'terminal') {
+export function openShop(source = 'terminal', terminalRef = null) {
     shopState = {
         source,
+        terminalRef, // reference to the shop terminal object (for singleUse marking)
         selectedIndex: 0,
         scrollOffset: 0,
         time: 0,
@@ -168,6 +169,10 @@ export function openShop(source = 'terminal') {
 }
 
 export function closeShop() {
+    // Mark singleUse terminal as used after purchase
+    if (shopState?.terminalRef?.singleUse && shopState.source === 'terminal') {
+        shopState.terminalRef.used = true;
+    }
     shopState = null;
 }
 
@@ -187,7 +192,7 @@ export function updateShopTerminals(player, level) {
         // Interact
         if (terminal.nearPlayer && keys.interact) {
             keys.interact = false; // consume input
-            openShop('terminal');
+            openShop('terminal', terminal);
             return;
         }
     }
