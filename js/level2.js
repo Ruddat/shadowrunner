@@ -431,4 +431,31 @@ export const level2 = {
         height: 100,
         locked: false,
     },
+
+    dataLogs: [
+        {
+            x: 1200,
+            y: 290,
+            width: 30,
+            height: 36,
+            logId: 'log_2_1',
+            collected: false,
+        },
+        {
+            x: 2400,
+            y: 330,
+            width: 30,
+            height: 36,
+            logId: 'log_2_2',
+            collected: false,
+        },
+        {
+            x: 3600,
+            y: 240,
+            width: 30,
+            height: 36,
+            logId: 'log_2_3',
+            collected: false,
+        },
+    ],
 };

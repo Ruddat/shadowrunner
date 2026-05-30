@@ -117,6 +117,9 @@ import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput
 import { updateStealth, initStealthForLevel, getStealthHUDData, isEnemyAlert } from './stealthSystem.js';
 import { drawSightCones, drawShadowAreas, drawStealthHUD, drawAlertFlash, triggerAlertFlash } from './sightCones.js';
 
+// Lore System
+import { updateDataLogs, drawDataLogs, openLoreReader, closeLoreReader, isLoreReaderOpen, updateLoreReader, drawLoreReader, calculatePlaystyle } from './loreSystem.js';
+
 // Speedrun timer helpers
 import { formatTime, getBestTime } from './hudSystem.js';
 
@@ -273,6 +276,7 @@ function update(dt) {
     updatePowerupPickup();
     updateHackTerminals();
     updateShopTerminals(player, state.currentLevel);
+    updateDataLogs(player, state.currentLevel);
     updatePlayerBuffs(player, dt, state.currentLevel);
     updatePendingLevelComplete(dt);
     updateParticles(dt);
@@ -969,6 +973,9 @@ function render() {
 
     // Hack terminals
     drawHackTerminals(ctx, camera);
+
+    // Data logs (collectible lore)
+    drawDataLogs(ctx, camera, currentLevel);
 
     // Shop terminals
     drawShopTerminals(ctx, camera);

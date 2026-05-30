@@ -617,6 +617,47 @@ export function drawLevelCompleteScreen() {
 
     drawResultRow('NO DEATH BONUS', `+${score.noDeathBonus}`, '#22c55e', rowLeft, rowValueX, y);
 
+    // --- Playstyle Rating ---
+    const playstyle = calculatePlaystyleInline(score);
+    if (playstyle) {
+        y += ui.rows.bonusGap;
+
+        // Playstyle badge
+        ctx.save();
+        const badgeX = CONFIG.width / 2;
+        const badgeY = y;
+
+        // Badge background
+        ctx.fillStyle = 'rgba(5, 5, 16, 0.9)';
+        ctx.fillRect(badgeX - 160, badgeY - 4, 320, 38);
+
+        // Badge border with playstyle color
+        ctx.strokeStyle = playstyle.color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(badgeX - 160, badgeY - 4, 320, 38);
+
+        // Style label
+        ctx.shadowColor = playstyle.color;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = playstyle.color;
+        ctx.font = '900 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(playstyle.style, badgeX - 60, badgeY + 22);
+
+        // Description
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 11px monospace';
+        ctx.fillText(playstyle.description, badgeX + 50, badgeY + 20);
+
+        ctx.restore();
+    }
+
+    // --- Data Logs Collected ---
+    const logsInfo = getLoreCountInfo();
+    y += 46;
+    drawResultRow('DATA LOGS', `${logsInfo.collected} / ${logsInfo.total}`, '#facc15', rowLeft, rowValueX, y);
+
     // Total bar
     const totalX = panelX + 72;
     const totalY = ui.total.y;
@@ -658,4 +699,55 @@ function drawResultRow(label, value, color, left, valueX, y) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
     ctx.fillText(value, valueX, y);
+}
+
+// ─── Inline Playstyle Rating (avoids circular dependency) ────────────────
+
+function calculatePlaystyleInline() {
+    const { currentLevel: level, player } = state;
+    if (!level || !player) return null;
+
+    const enemiesTotal = level.enemies?.length ?? 0;
+    const enemiesDefeated = enemiesTotal > 0
+        ? level.enemies.filter(e => e.active === false).length
+        : 0;
+    const killsRatio = enemiesTotal > 0 ? enemiesDefeated / enemiesTotal : 0;
+
+    let alertCount = 0;
+    if (level.enemies) {
+        for (const enemy of level.enemies) {
+            if (enemy.alertState === 'alert' || enemy.alertState === 'suspicious') alertCount++;
+            if (enemy.lastKnownPlayerX !== null) alertCount++;
+        }
+    }
+
+    const deaths = player.deathsThisLevel ?? 0;
+
+    if (killsRatio === 0 && alertCount === 0 && deaths === 0) {
+        return { style: 'GHOST', color: '#8a2be2', description: 'Unseen. Unheard. The perfect shadow.' };
+    }
+    if (killsRatio <= 0.2 && alertCount <= 2 && deaths === 0) {
+        return { style: 'SHADOW', color: '#a855f7', description: 'A whisper in the dark. They never saw you coming.' };
+    }
+    if (killsRatio <= 0.5 && alertCount <= 4) {
+        return { style: 'PANTHER', color: '#facc15', description: 'Strike from the shadows. Leave no witnesses.' };
+    }
+    if (killsRatio > 0.5 || alertCount > 6) {
+        return { style: 'ASSAULT', color: '#ef4444', description: 'No stealth. No mercy. Full frontal assault.' };
+    }
+    return { style: 'RUNNER', color: '#21e6ff', description: 'Adapt and overcome. A survivor gets the job done.' };
+}
+
+// ─── Lore Count Info (reads localStorage directly to avoid circular dep) ──
+
+function getLoreCountInfo() {
+    try {
+        const raw = localStorage.getItem('shadowrunner_lore');
+        const collected = raw ? JSON.parse(raw) : [];
+        // Total defined in loreSystem.js — keep in sync
+        const total = 14;
+        return { collected: collected.length, total };
+    } catch (_) {
+        return { collected: 0, total: 14 };
+    }
 }

@@ -250,5 +250,31 @@ export const level1 = {
             "singleUse": false,
             "nearPlayer": false
         }
+    ],
+    "dataLogs": [
+        {
+            "x": 780,
+            "y": 272,
+            "width": 30,
+            "height": 36,
+            "logId": "log_1_1",
+            "collected": false
+        },
+        {
+            "x": 1620,
+            "y": 282,
+            "width": 30,
+            "height": 36,
+            "logId": "log_1_2",
+            "collected": false
+        },
+        {
+            "x": 2620,
+            "y": 302,
+            "width": 30,
+            "height": 36,
+            "logId": "log_1_3",
+            "collected": false
+        }
     ]
 };
