@@ -9,7 +9,7 @@ import { Camera } from './camera.js';
 import { getLevel } from './levels.js';
 import { keys, pollGamepads, getGamepadMenuAction, saveKeySnapshot, justPressed } from './input.js';
 import { initIntro, updateIntro, drawIntro } from './intro.js';
-import { updateParticles, drawParticles } from './particles.js';
+import { updateParticles, drawParticles, spawnParticles } from './particles.js';
 import {
     updateFloatingItems,
     drawFloatingItems,
