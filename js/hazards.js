@@ -19,7 +19,7 @@ import { CONFIG } from './config.js';
 import { spawnParticles } from './particles.js';
 import { playSound } from './audioManager.js';
 import { showCenterMessage } from './screens.js';
-import { rectsOverlap, raycast } from './collision.js';
+import { rectsOverlap } from './collision.js';
 import { triggerAlertFlash } from './sightCones.js';
 
 // ─── Hazard Update ──────────────────────────────────────────────────────
