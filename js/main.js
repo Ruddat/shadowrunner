@@ -108,7 +108,7 @@ import {
 } from './shopSystem.js';
 
 // Sprite System
-import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
+import { initPlayerSprite, initEnemySprites, getPlayerSprite } from './spriteManager.js';
 
 // Options Menu
 import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput, setupFullscreenResize, isFullscreenOptionSelected, markFullscreenHandled } from './optionsMenu.js';
@@ -815,6 +815,52 @@ function drawPlayerWithEffects() {
     const screenX = player.x - camera.x;
     const screenY = player.y - camera.y;
 
+    // --- Dash Trail / Afterimages ---
+    if (player.dashTrail && player.dashTrail.length > 0) {
+        const sprite = getPlayerSprite();
+        for (const ghost of player.dashTrail) {
+            const gx = ghost.x - camera.x;
+            const gy = ghost.y - camera.y;
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, ghost.alpha * 0.6);
+
+            // Ghost aura
+            ctx.shadowColor = '#7c3cff';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = 'rgba(124, 60, 255, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(
+                gx + ghost.width / 2,
+                gy + ghost.height / 2,
+                ghost.width * 1.05,
+                ghost.height * 0.75,
+                0,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+
+            // Ghost body
+            if (sprite && sprite.loaded) {
+                const drawH = ghost.height;
+                const scale = drawH / sprite.frameHeight;
+                const scaledW = sprite.frameWidth * scale;
+                const offsetX = (ghost.width - scaledW) / 2;
+
+                // Tinted silhouette
+                ctx.globalAlpha = Math.max(0, ghost.alpha * 0.4);
+                ctx.fillStyle = 'rgba(124, 60, 255, 0.5)';
+                ctx.fillRect(gx + offsetX, gy, scaledW, drawH);
+            } else {
+                ctx.fillStyle = 'rgba(124, 60, 255, 0.4)';
+                ctx.fillRect(gx, gy, ghost.width, ghost.height);
+            }
+
+            ctx.restore();
+        }
+    }
+
     // Core player draw
     player.draw(ctx, camera);
 
@@ -1311,36 +1357,101 @@ function drawPauseOverlay() {
 
 // --- Checkpoint System ---
 
+let checkpointFlashTimer = 0;
+
 function drawCheckpoints() {
     const { currentLevel: level, camera, player } = state;
     if (!level.checkpoints) return;
 
+    const time = Date.now() * 0.001;
+
     for (const cp of level.checkpoints) {
         const x = cp.x - camera.x;
         const y = cp.y - camera.y;
+
+        // Skip if off-screen
+        if (x + cp.width < -20 || x > CONFIG.width + 20) continue;
 
         const isActive = state.checkpoint && state.checkpoint.x === cp.x && state.checkpoint.y === cp.y;
 
         ctx.save();
 
         if (isActive) {
-            const pulse = Math.sin(Date.now() / 300) * 0.3 + 0.7;
-            ctx.shadowColor = '#22c55e';
-            ctx.shadowBlur = 16 * pulse;
-            ctx.fillStyle = `rgba(34, 197, 94, ${0.3 * pulse})`;
-            ctx.fillRect(x, y, cp.width, cp.height);
+            // --- Active Checkpoint: Cyberpunk beacon with pulsing glow ---
+            const pulse = Math.sin(time * 4) * 0.3 + 0.7;
 
+            // Vertical beacon beam
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 20 * pulse;
+            ctx.strokeStyle = `rgba(34, 197, 94, ${0.4 * pulse})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + cp.width / 2, y);
+            ctx.lineTo(x + cp.width / 2, y + cp.height);
+            ctx.stroke();
+
+            // Horizontal scan line moving up/down
+            const scanY = y + (cp.height * 0.5) + Math.sin(time * 3) * cp.height * 0.3;
+            ctx.fillStyle = `rgba(34, 197, 94, ${0.6 * pulse})`;
+            ctx.fillRect(x + 4, scanY, cp.width - 8, 2);
+
+            // Diamond marker at center
+            const cx = x + cp.width / 2;
+            const cy = y + cp.height / 2;
+            ctx.fillStyle = `rgba(34, 197, 94, ${0.7 * pulse})`;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 8);
+            ctx.lineTo(cx + 8, cy);
+            ctx.lineTo(cx, cy + 8);
+            ctx.lineTo(cx - 8, cy);
+            ctx.closePath();
+            ctx.fill();
+
+            // Inner diamond
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * pulse})`;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 3);
+            ctx.lineTo(cx + 3, cy);
+            ctx.lineTo(cx, cy + 3);
+            ctx.lineTo(cx - 3, cy);
+            ctx.closePath();
+            ctx.fill();
+
+            // "CP" label above
+            ctx.shadowBlur = 8;
             ctx.fillStyle = '#22c55e';
-            ctx.font = '900 14px monospace';
+            ctx.font = '900 11px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('CP', x + cp.width / 2, y - 6);
+            ctx.fillText('CP', cx, y - 8);
+
+            // Outer glow frame
+            ctx.strokeStyle = `rgba(34, 197, 94, ${0.25 * pulse})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(x, y, cp.width, cp.height);
+            ctx.setLineDash([]);
+
         } else if (!cp.activated) {
-            ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
-            ctx.fillRect(x, y, cp.width, cp.height);
+            // --- Inactive Checkpoint: subtle outline with faint pulse ---
+            const slowPulse = Math.sin(time * 2) * 0.15 + 0.2;
+
+            // Faint dashed outline
+            ctx.strokeStyle = `rgba(34, 197, 94, ${slowPulse + 0.15})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(x, y, cp.width, cp.height);
+            ctx.setLineDash([]);
+
+            // Small dot at center
+            ctx.fillStyle = `rgba(34, 197, 94, ${slowPulse})`;
+            ctx.beginPath();
+            ctx.arc(x + cp.width / 2, y + cp.height / 2, 3, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         ctx.restore();
 
+        // --- Checkpoint activation ---
         if (!cp.activated && rectsOverlap(player, cp)) {
             cp.activated = true;
             state.checkpoint = { x: cp.x, y: cp.y - player.height - 4 };
@@ -1349,7 +1460,21 @@ function drawCheckpoints() {
             saveGame(state);
             showCenterMessage('CHECKPOINT', 0.9);
             playSound('itemPickup');
+            checkpointFlashTimer = 0.4;
+
+            // Burst particles on activation
+            spawnParticles(cp.x + cp.width / 2, cp.y + cp.height / 2, 20, '#22c55e');
         }
+    }
+
+    // --- Checkpoint activation flash effect ---
+    if (checkpointFlashTimer > 0) {
+        checkpointFlashTimer -= state._renderDt || 0.016;
+        const alpha = Math.max(0, checkpointFlashTimer) * 0.5;
+        ctx.save();
+        ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
+        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+        ctx.restore();
     }
 }
 

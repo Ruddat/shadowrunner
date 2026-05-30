@@ -51,6 +51,9 @@ export class Player {
         // Dash-Attack: track enemies hit during current dash
         this.dashHitEnemies = new Set();
 
+        // Dash Trail: afterimage positions for visual effect
+        this.dashTrail = [];
+
         this.weaponId = WEAPON_IDS.BLASTER;
         this.weaponLevel = 1;
 
@@ -409,9 +412,33 @@ export class Player {
         if (this.shadowDashTimer > 0) {
             this.shadowDashTimer -= dt;
 
+            // Record trail position every frame during dash
+            this.dashTrail.push({
+                x: this.x,
+                y: this.y,
+                alpha: 0.7,
+                width: this.width,
+                height: this.height,
+                facing: this.facing,
+                shadowShift: this.shadowShift,
+            });
+
+            // Keep trail max 8 ghosts
+            if (this.dashTrail.length > 8) {
+                this.dashTrail.shift();
+            }
+
             // Reset dash hit list when dash ends
             if (this.shadowDashTimer <= 0) {
                 this.dashHitEnemies.clear();
+            }
+        } else {
+            // Fade out trail ghosts when not dashing
+            for (let i = this.dashTrail.length - 1; i >= 0; i--) {
+                this.dashTrail[i].alpha -= dt * 4;
+                if (this.dashTrail[i].alpha <= 0) {
+                    this.dashTrail.splice(i, 1);
+                }
             }
         }
 
@@ -420,11 +447,25 @@ export class Player {
             this.shadowDashCooldown <= 0 &&
             this.shadowEnergy >= 18
         ) {
-            this.shadowDashTimer = 0.12;
+            this.shadowDashTimer = 0.14;
             this.shadowDashCooldown = 0.65;
             this.shadowEnergy -= 18;
             this.shadowShift = true;
             this.dashHitEnemies.clear(); // fresh hit list for this dash
+            this.dashTrail = []; // fresh trail
+
+            // Dash start effects
+            spawnParticles(
+                this.x + this.width / 2,
+                this.y + this.height / 2,
+                14,
+                '#7c3cff'
+            );
+
+            // Camera shake on dash
+            if (state.camera) {
+                state.camera.shake(4, 0.08);
+            }
         }
     }
 
@@ -562,6 +603,9 @@ export class Player {
         if (state.checkpoint) {
             this.x = state.checkpoint.x;
             this.y = state.checkpoint.y;
+            // Restore gems and keys to checkpoint snapshot
+            this.gems = state.checkpointGems;
+            this.keys = state.checkpointKeys;
         } else {
             this.x = level.spawn.x;
             this.y = level.spawn.y;
@@ -575,6 +619,7 @@ export class Player {
         this.wallSliding = false;
         this.wallSide = null;
         this.wallJumpCooldown = 0;
+        this.dashTrail = [];
         this.resetCombo();
     }
 
