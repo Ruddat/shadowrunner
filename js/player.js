@@ -186,6 +186,11 @@ export class Player {
                             weaponId: block.weaponId ?? null,
                             randomPool: block.randomPool ?? null,
                         };
+
+                        // Screen shake for bonus block hit
+                        if (state.camera) {
+                            state.camera.shake(3, 0.08);
+                        }
                     }
                 }
             }
