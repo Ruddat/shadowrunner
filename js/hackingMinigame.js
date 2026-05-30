@@ -18,6 +18,7 @@ import { keys } from './input.js';
 import { CONFIG } from './config.js';
 import { playSound } from './audioManager.js';
 import { rectsOverlap } from './collision.js';
+import { getHackSpeedMultiplier } from './skillTree.js';
 
 // ─── Constants ───────────────────────────────────────────────────────
 
@@ -89,11 +90,13 @@ export function isHacking() {
 }
 
 function getTimerForDifficulty(difficulty) {
+    // Apply skill: Hack Speed multiplier gives more time (lower mult = faster hacking)
+    const hackBonus = 1 / getHackSpeedMultiplier(); // invert: faster speed = more time
     switch (difficulty) {
-        case 'easy': return 45;
-        case 'medium': return 35;
-        case 'hard': return 25;
-        default: return 35;
+        case 'easy': return Math.floor(45 * hackBonus);
+        case 'medium': return Math.floor(35 * hackBonus);
+        case 'hard': return Math.floor(25 * hackBonus);
+        default: return Math.floor(35 * hackBonus);
     }
 }
 

@@ -120,6 +120,15 @@ import { drawSightCones, drawShadowAreas, drawStealthHUD, drawAlertFlash, trigge
 // Lore System
 import { updateDataLogs, drawDataLogs, openLoreReader, closeLoreReader, isLoreReaderOpen, updateLoreReader, drawLoreReader, calculatePlaystyle } from './loreSystem.js';
 
+// Skill Tree System
+import { awardXP, openSkillTree, closeSkillTree, isSkillTreeOpen, updateSkillTree, drawSkillTree, drawSkillPointHUD, fullResetSkills } from './skillTree.js';
+
+// Environmental Hazards
+import { updateHazards, drawHazards, disableHazard } from './hazards.js';
+
+// NPC Dialog System
+import { updateNPCs, isNPCDialogOpen, updateNPCDialog, drawNPCs, drawNPCDialogOverlay } from './npcDialog.js';
+
 // Speedrun timer helpers
 import { formatTime, getBestTime } from './hudSystem.js';
 
@@ -225,6 +234,18 @@ function update(dt) {
         return;
     }
 
+    // Skill Tree: freeze normal gameplay, run skill tree update
+    if (isSkillTreeOpen()) {
+        updateSkillTree(dt);
+        return;
+    }
+
+    // NPC Dialog: freeze normal gameplay, run dialog update
+    if (isNPCDialogOpen()) {
+        updateNPCDialog(dt);
+        return;
+    }
+
     // Hacking minigame: freeze normal gameplay, run hacking update
     if (isHacking()) {
         updateHacking(dt);
@@ -277,6 +298,8 @@ function update(dt) {
     updateHackTerminals();
     updateShopTerminals(player, state.currentLevel);
     updateDataLogs(player, state.currentLevel);
+    updateHazards(player, state.currentLevel, dt);
+    updateNPCs(player, state.currentLevel);
     updatePlayerBuffs(player, dt, state.currentLevel);
     updatePendingLevelComplete(dt);
     updateParticles(dt);
@@ -971,17 +994,26 @@ function render() {
     // Checkpoint indicators
     drawCheckpoints();
 
+    // Environmental Hazards (before enemies, after platforms)
+    drawHazards(ctx, camera, currentLevel);
+
     // Hack terminals
     drawHackTerminals(ctx, camera);
 
     // Data logs (collectible lore)
     drawDataLogs(ctx, camera, currentLevel);
 
+    // NPCs
+    drawNPCs(ctx, camera, currentLevel);
+
     // Shop terminals
     drawShopTerminals(ctx, camera);
 
     // Buff indicators
     drawBuffIndicators(ctx, player);
+
+    // Skill point HUD indicator
+    drawSkillPointHUD(ctx);
 
     // Pause overlay
     if (state.paused) {
@@ -996,6 +1028,16 @@ function render() {
     // Shop overlay (renders on top of everything, even hacking)
     if (isShopOpen()) {
         drawShop(ctx);
+    }
+
+    // Skill tree overlay
+    if (isSkillTreeOpen()) {
+        drawSkillTree(ctx);
+    }
+
+    // NPC dialog overlay
+    if (isNPCDialogOpen()) {
+        drawNPCDialogOverlay(ctx);
     }
 
     // Options overlay (renders on top of absolutely everything)
@@ -1169,6 +1211,16 @@ window.addEventListener('keydown', (e) => {
         // Pause: Escape or P key
         if (e.code === 'Escape' || e.code === 'KeyP') {
             togglePause();
+            return;
+        }
+
+        // Skill Tree: T key
+        if (e.code === 'KeyT') {
+            if (isSkillTreeOpen()) {
+                closeSkillTree();
+            } else {
+                openSkillTree();
+            }
             return;
         }
     }
@@ -1349,6 +1401,10 @@ function drawPauseOverlay() {
     ctx.fillStyle = 'rgba(33, 230, 255, 0.6)';
     ctx.font = '700 13px monospace';
     ctx.fillText('ENTER / SPACE for Options', CONFIG.width / 2, CONFIG.height / 2 + 76);
+
+    ctx.fillStyle = 'rgba(250, 204, 21, 0.6)';
+    ctx.font = '700 13px monospace';
+    ctx.fillText('T for Skill Tree', CONFIG.width / 2, CONFIG.height / 2 + 96);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.font = '700 12px monospace';

@@ -1,4 +1,5 @@
 import { getWeaponStats, WEAPON_IDS } from './weapons.js';
+import { getWeaponDamageMultiplier, getCritChance } from './skillTree.js';
 
 export class Projectile {
     constructor(x, y, direction, weaponId = WEAPON_IDS.BLASTER, weaponLevel = 1, angleOffset = 0) {
@@ -16,7 +17,16 @@ export class Projectile {
         this.weaponLevel = weaponLevel;
 
         this.speed = stats.projectileSpeed;
-        this.damage = stats.damage;
+        // Apply skill: Weapon Damage multiplier
+        this.damage = stats.damage * getWeaponDamageMultiplier();
+
+        // Apply skill: Critical Hit chance (2x damage)
+        if (Math.random() < getCritChance()) {
+            this.damage *= 2;
+            this._isCrit = true;
+        } else {
+            this._isCrit = false;
+        }
 
         this.vx = Math.cos(angleOffset) * this.speed * direction;
         this.vy = Math.sin(angleOffset) * this.speed;
@@ -90,6 +100,17 @@ if (this.plasma) {
         const y = this.y - camera.y;
 
         ctx.save();
+
+        // Critical hit: extra glow
+        if (this._isCrit) {
+            ctx.shadowColor = '#facc15';
+            ctx.shadowBlur = 28;
+            // Draw crit aura
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.15)';
+            ctx.beginPath();
+            ctx.arc(x + this.width / 2, y + this.height / 2, this.width, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.shadowColor = this.glow;
         ctx.shadowBlur = this.weaponId === WEAPON_IDS.LASER ? 24 : 16;

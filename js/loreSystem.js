@@ -18,6 +18,7 @@ import { spawnParticles } from './particles.js';
 import { playSound } from './audioManager.js';
 import { showCenterMessage } from './screens.js';
 import { keys, justPressed } from './input.js';
+import { awardXP } from './skillTree.js';
 
 // ─── Lore Database ──────────────────────────────────────────────────────
 
@@ -202,6 +203,9 @@ export function updateDataLogs(player, level) {
 
             showCenterMessage('DATA LOG', 0.8);
             playSound('itemPickup');
+
+            // Award XP for finding data logs
+            awardXP(15, 'data_log');
 
             spawnParticles(
                 log.x + log.width / 2,

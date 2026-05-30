@@ -18,6 +18,7 @@ import { spawnParticles } from './particles.js';
 import { showCenterMessage } from './screens.js';
 import { rectsOverlap } from './collision.js';
 import { getWeaponDisplayName, WEAPON_IDS } from './weapons.js';
+import { getShopDiscount, getBuffDurationMultiplier, getExtraMagnetRadius } from './skillTree.js';
 
 // ─── Shop Item Definitions ──────────────────────────────────────────────
 
@@ -389,14 +390,18 @@ function attemptPurchase(item) {
         return;
     }
 
+    // Apply skill: Shop Discount
+    const discount = getShopDiscount();
+    const effectiveCost = Math.max(1, item.cost - discount);
+
     // Check gems
-    if (player.gems < item.cost) {
+    if (player.gems < effectiveCost) {
         showShopNotification('NOT ENOUGH GEMS', '#ff003c');
         return;
     }
 
     // Purchase!
-    player.gems -= item.cost;
+    player.gems -= effectiveCost;
     item.apply(player);
 
     shopState.itemsBoughtThisLevel[item.id] = bought + 1;
@@ -894,16 +899,22 @@ export function drawShopButtonOnLevelComplete(ctx) {
  * Called from the main update loop.
  */
 export function updatePlayerBuffs(player, dt, level) {
+    // Skill: Buff Duration multiplier
+    const buffMult = getBuffDurationMultiplier();
+    // Skill: Extra magnet radius
+    const extraRadius = getExtraMagnetRadius();
+
     // Magnet effect: attract nearby gems
     if (player._magnetTimer && player._magnetTimer > 0) {
         player._magnetTimer -= dt;
         if (level.gems) {
+            const magnetRange = 200 + extraRadius;
             for (const gem of level.gems) {
                 if (gem.collected) continue;
                 const dx = player.x + player.width / 2 - (gem.x + 13);
                 const dy = player.y + player.height / 2 - (gem.y + 13);
                 const dist = Math.hypot(dx, dy);
-                if (dist < 200 && dist > 5) {
+                if (dist < magnetRange && dist > 5) {
                     const pull = 400 * dt;
                     gem.x += (dx / dist) * pull;
                     gem.y += (dy / dist) * pull;
@@ -915,20 +926,38 @@ export function updatePlayerBuffs(player, dt, level) {
         }
     }
 
+    // Passive gem magnet (from skill, always active)
+    if (extraRadius > 0 && !player._magnetTimer) {
+        const passiveRange = extraRadius;
+        if (level.gems) {
+            for (const gem of level.gems) {
+                if (gem.collected) continue;
+                const dx = player.x + player.width / 2 - (gem.x + 13);
+                const dy = player.y + player.height / 2 - (gem.y + 13);
+                const dist = Math.hypot(dx, dy);
+                if (dist < passiveRange && dist > 5) {
+                    const pull = 200 * dt;
+                    gem.x += (dx / dist) * pull;
+                    gem.y += (dy / dist) * pull;
+                }
+            }
+        }
+    }
+
     // Shield effect: reduce incoming damage
     // (handled in player.hit() via _shieldTimer check)
 
     // Speed boost
     // (handled in player movement via _speedBoostTimer check)
 
-    // Timed buff decay
+    // Timed buff decay (with skill: Buff Duration multiplier)
     if (player._shieldTimer && player._shieldTimer > 0) {
-        player._shieldTimer -= dt;
+        player._shieldTimer -= dt / buffMult;
         if (player._shieldTimer <= 0) player._shieldTimer = 0;
     }
 
     if (player._speedBoostTimer && player._speedBoostTimer > 0) {
-        player._speedBoostTimer -= dt;
+        player._speedBoostTimer -= dt / buffMult;
         if (player._speedBoostTimer <= 0) player._speedBoostTimer = 0;
     }
 }

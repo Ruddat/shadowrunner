@@ -276,5 +276,66 @@ export const level1 = {
             "logId": "log_1_3",
             "collected": false
         }
+    ],
+    "hazards": [
+        {
+            "type": "laser_grid",
+            "id": "laser_1",
+            "x": 1050,
+            "y": 312,
+            "width": 200,
+            "thickness": 4,
+            "damage": 15,
+            "orientation": "horizontal",
+            "cycleTime": 4,
+            "dutyCycle": 0.7,
+            "hackable": true,
+            "alarmRadius": 350
+        },
+        {
+            "type": "security_cam",
+            "id": "cam_1",
+            "x": 1540,
+            "y": 280,
+            "width": 20,
+            "height": 16,
+            "range": 220,
+            "coneAngle": 1.2,
+            "startAngle": 0.3,
+            "minAngle": -0.6,
+            "maxAngle": 0.8,
+            "rotateSpeed": 0.6,
+            "_direction": 1,
+            "hackable": true,
+            "alarmRadius": 300
+        },
+        {
+            "type": "tripwire",
+            "id": "trip_1",
+            "x": 2580,
+            "y": 392,
+            "width": 80,
+            "height": 8,
+            "triggerAlarm": true,
+            "alarmRadius": 400
+        }
+    ],
+    "npcs": [
+        {
+            "x": 100,
+            "y": 352,
+            "width": 30,
+            "height": 50,
+            "dialogId": "npc_rooftop_fixer",
+            "nearPlayer": false
+        },
+        {
+            "x": 2320,
+            "y": 260,
+            "width": 30,
+            "height": 50,
+            "dialogId": "npc_rooftop_hacker",
+            "nearPlayer": false
+        }
     ]
 };

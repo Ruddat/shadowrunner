@@ -10,6 +10,7 @@ import { showCenterMessage } from './screens.js';
 import { state } from './gameState.js';
 import { getPlayerSprite, AnimationState } from './spriteManager.js';
 import { getSpeedMultiplier, getDamageReduction, tryDoubleJump } from './shopSystem.js';
+import { getShadowDrainMultiplier, getShadowRechargeMultiplier, getExtraDashDamage, getExtraShadowDamageReduction, getWeaponDamageMultiplier, getFireRateMultiplier, getExtraComboTime, getCritChance } from './skillTree.js';
 
 export class Player {
     constructor(x, y) {
@@ -35,7 +36,7 @@ export class Player {
         this.comboCount = 0;
         this.comboMultiplier = 1;
         this.comboTimer = 0;        // time since last kill (resets combo if expired)
-        this.comboDecayTime = 2.5;  // seconds before combo resets
+        this.comboDecayTime = 2.5 + getExtraComboTime();  // seconds before combo resets (+ skill)
 
         this.lives = 3;
         this.invincibleTimer = 0;
@@ -292,7 +293,7 @@ export class Player {
 
     registerKill() {
         this.comboCount++;
-        this.comboTimer = this.comboDecayTime;
+        this.comboTimer = 2.5 + getExtraComboTime();  // base + skill combo time
 
         // Multiplier tiers: 1→x2 at 3 kills, x3 at 6, x5 at 10
         if (this.comboCount >= 10) {
@@ -319,7 +320,8 @@ export class Player {
     // --- Dash-Attack ---
 
     checkDashAttack(level) {
-        const dashDamage = 2;
+        // Skill: Dash Power adds extra damage
+        const dashDamage = 2 + getExtraDashDamage();
 
         // Check enemies
         if (level.enemies) {
@@ -394,14 +396,18 @@ export class Player {
     }
 
     updateShadowShift(dt) {
+        // Skill: Shadow Duration reduces drain, Shadow Recharge speeds recharge
+        const drainRate = 28 * getShadowDrainMultiplier();
+        const rechargeRate = 14 * getShadowRechargeMultiplier();
+
         if (keys.shadow && this.shadowEnergy > 0) {
             this.shadowShift = true;
-            this.shadowEnergy = Math.max(0, this.shadowEnergy - 28 * dt);
+            this.shadowEnergy = Math.max(0, this.shadowEnergy - drainRate * dt);
             return;
         }
 
         this.shadowShift = false;
-        this.shadowEnergy = Math.min(100, this.shadowEnergy + 14 * dt);
+        this.shadowEnergy = Math.min(100, this.shadowEnergy + rechargeRate * dt);
     }
 
     updateShadowDash(dt) {
@@ -489,9 +495,10 @@ export class Player {
         if (this.isGameOver) return;
         if (this.invincibleTimer > 0) return;
 
-        // Apply shop shield damage reduction
+        // Apply shop shield damage reduction + skill: Phase Walk extra reduction
         const shieldReduction = getDamageReduction(this);
-        let finalDamage = this.shadowShift ? damage * 0.75 : damage;
+        const shadowReduction = this.shadowShift ? (0.75 - getExtraShadowDamageReduction()) : 1;
+        let finalDamage = this.shadowShift ? damage * Math.max(0.25, shadowReduction) : damage;
         finalDamage = finalDamage * (1 - shieldReduction);
 
         this.energy = Math.max(0, this.energy - finalDamage);
@@ -545,7 +552,9 @@ export class Player {
             );
         }
         this.playWeaponSound();
-        this.shootCooldown = this.shadowShift ? weapon.fireRate * 0.85 : weapon.fireRate;
+        // Skill: Fire Rate reduces cooldown
+        const fireRateMult = getFireRateMultiplier();
+        this.shootCooldown = (this.shadowShift ? weapon.fireRate * 0.85 : weapon.fireRate) * fireRateMult;
     }
 
     playWeaponSound() {

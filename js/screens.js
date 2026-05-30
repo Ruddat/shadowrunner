@@ -8,6 +8,7 @@ import { spawnParticles } from './particles.js';
 import { state } from './gameState.js';
 import { stopMusic, playMusic } from './audioManager.js';
 import { saveGame } from './saveSystem.js';
+import { awardXP } from './skillTree.js';
 
 const LEVEL_COMPLETE_UI = {
     panel: {
@@ -530,6 +531,9 @@ export function completeLevel({ bossDefeated = false } = {}) {
         player.score = (player.score ?? 0) + score.total;
         state.levelStats.scoreAdded = true;
         state.levelStats.score = score;
+
+        // Award XP for level completion
+        awardXP(50, 'level_complete');
     }
 
     projectiles.length = 0;

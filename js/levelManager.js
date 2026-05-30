@@ -27,6 +27,7 @@ import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
 import { deleteSave } from './saveSystem.js';
 import { resetShopPurchases } from './shopSystem.js';
 import { initStealthForLevel } from './stealthSystem.js';
+import { awardXP, fullResetSkills } from './skillTree.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
@@ -213,6 +214,9 @@ export function startNewGame() {
     state.speedrunStartTime = performance.now();
     state.speedrunActive = true;
     state.speedrunLevelTimes = [];
+
+    // Reset skill tree for new game
+    fullResetSkills();
 }
 
 export function retryCurrentLevel() {
@@ -486,6 +490,17 @@ export function updateProjectiles(dt) {
 
                 camera.shake(5, 0.14);
 
+                // Critical hit feedback
+                if (projectile._isCrit) {
+                    camera.shake(8, 0.18);
+                    spawnParticles(
+                        enemy.x + enemy.width / 2,
+                        enemy.y + enemy.height / 2,
+                        8,
+                        '#facc15'
+                    );
+                }
+
                 enemy.health = (enemy.health ?? 1) - projectile.damage;
 
                 if (enemy.health <= 0) {
@@ -496,6 +511,10 @@ export function updateProjectiles(dt) {
                     const comboMsg = player.comboMultiplier > 1
                         ? `x${player.comboMultiplier} COMBO!`
                         : undefined;
+
+                    // Award XP for kill (more for combo kills)
+                    const xpAmount = 10 + (player.comboMultiplier > 1 ? player.comboMultiplier * 5 : 0);
+                    awardXP(xpAmount, 'kill');
 
                     spawnParticles(
                         enemy.x + enemy.width / 2,
@@ -643,6 +662,9 @@ function damageEnemiesInRadius(centerX, centerY, radius, damage) {
 
             // Combo system: register kill for AOE too
             player.registerKill();
+
+            // Award XP for AOE kill
+            awardXP(10 + (player.comboMultiplier > 1 ? player.comboMultiplier * 5 : 0), 'kill');
 
             spawnParticles(
                 enemyCenterX,
