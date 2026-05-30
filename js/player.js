@@ -169,6 +169,12 @@ export class Player {
         // Bonus block head-bump (hit from below)
         if (this.velocityY < 0 && level.bonusBlocks) {
             for (const block of level.bonusBlocks) {
+                // Already depleted? Skip entirely (no bounce either)
+                if (block.used) continue;
+
+                // Hit cooldown: prevent rapid re-hits (like Mario)
+                if (block._hitCooldown && block._hitCooldown > 0) continue;
+
                 const hitFromBelow =
                     this.x < block.x + block.width &&
                     this.x + this.width > block.x &&
@@ -179,9 +185,6 @@ export class Player {
                     this.y = block.y + block.height;
                     this.velocityY = 120;
 
-                    // Already depleted? Do nothing
-                    if (block.used) continue;
-
                     // Multi-hit blocks: initialize hitsLeft on first hit
                     if (block.hitsLeft === undefined) {
                         block.hitsLeft = block.hits ?? 1;
@@ -190,6 +193,8 @@ export class Player {
                     if (block.hitsLeft > 0) {
                         block.hitsLeft--;
                         block.bumpTimer = 0.18;
+                        // Hit cooldown: 0.35s prevents multiple hits per jump
+                        block._hitCooldown = 0.35;
 
                         block.spawnRequest = {
                             x: block.x + 7,

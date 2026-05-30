@@ -655,6 +655,9 @@ function updateSelectionPanel() {
         checkpoints: 'Checkpoint',
         shadowAreas: 'Shadow-Area',
         keys: 'Schlüssel',
+        hazards: 'Hazard',
+        npcs: 'NPC',
+        dataLogs: 'Data Log',
         spawn: 'Spawn',
         exit: 'Exit',
     };
@@ -664,6 +667,16 @@ function updateSelectionPanel() {
     // Special fields for enemy type
     if (group === 'enemies') {
         addEnemyTypeSelector(wrap, item);
+    }
+
+    // Special fields for hazard type
+    if (group === 'hazards') {
+        addHazardTypeSelector(wrap, item);
+    }
+
+    // Special fields for bonus block hits
+    if (group === 'bonusBlocks') {
+        addBonusBlockHitsSelector(wrap, item);
     }
 
     // Special fields for exit
@@ -704,6 +717,10 @@ function updateSelectionPanel() {
             input.value = item[key];
         } else if (key === 'type' && group === 'enemies') {
             continue; // Handled by addEnemyTypeSelector
+        } else if (key === 'type' && group === 'hazards') {
+            continue; // Handled by addHazardTypeSelector
+        } else if (key === 'hits' && group === 'bonusBlocks') {
+            continue; // Handled by addBonusBlockHitsSelector
         } else if (typeof item[key] === 'boolean') {
             input = document.createElement('select');
             input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
@@ -762,6 +779,101 @@ function addEnemyTypeSelector(wrap, item) {
 
     label.appendChild(input);
     wrap.appendChild(label);
+}
+
+function addHazardTypeSelector(wrap, item) {
+    const label = document.createElement('label');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'field-name';
+    nameSpan.textContent = 'type (Hazard-Art)';
+    label.appendChild(nameSpan);
+
+    const HAZARD_TYPES = ['laser_grid', 'security_cam', 'tripwire'];
+    const HAZARD_LABELS = {
+        laser_grid: 'Laser Grid (Lasernetz)',
+        security_cam: 'Security Cam (Kamera)',
+        tripwire: 'Tripwire (Stolperdraht)',
+    };
+
+    const input = document.createElement('select');
+    input.innerHTML = HAZARD_TYPES.map(t => `<option value="${t}">${HAZARD_LABELS[t] || t}</option>`).join('');
+    input.value = item.type || 'laser_grid';
+
+    input.addEventListener('change', () => {
+        saveUndoState();
+        const newType = input.value;
+        const x = item.x;
+        const y = item.y;
+        const newHazard = createHazardByType(newType, x, y);
+
+        // Preserve some common properties if they were customized
+        if (item.hackable !== undefined) newHazard.hackable = item.hackable;
+        if (item.triggerAlarm !== undefined) newHazard.triggerAlarm = item.triggerAlarm;
+
+        const hazards = state.level.hazards;
+        const idx = hazards.indexOf(item);
+        if (idx >= 0) {
+            hazards[idx] = newHazard;
+            state.selected.item = newHazard;
+        }
+
+        updatePanels();
+    });
+
+    label.appendChild(input);
+    wrap.appendChild(label);
+
+    // Description of the hazard type
+    const descSpan = document.createElement('span');
+    descSpan.className = 'field-desc';
+    descSpan.style.cssText = 'display:block; font-size:10px; color:#94a3b8; margin:2px 0 8px 0; line-height:1.4;';
+    const descriptions = {
+        laser_grid: 'Roter Laserstrahl. Schadet Spieler + löst Alarm aus. Im Shadow-Modus passierbar!',
+        security_cam: 'Überwachungskamera mit Sichtkegel. Erkennt Spieler + Alarm. Kann gehackt werden.',
+        tripwire: 'Fast unsichtbarer Stolperdraht. Löst Alarm aus. Im Shadow-Modus sichtbar (orange).',
+    };
+    descSpan.textContent = descriptions[item.type || 'laser_grid'] || '';
+    wrap.appendChild(descSpan);
+}
+
+function addBonusBlockHitsSelector(wrap, item) {
+    const label = document.createElement('label');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'field-name';
+    nameSpan.textContent = 'hits (wie oft treffbar)';
+    label.appendChild(nameSpan);
+
+    const input = document.createElement('select');
+    const hitsOptions = [
+        { value: '1', label: '1 (normaler Block)' },
+        { value: '2', label: '2 (Multi-Hit)' },
+        { value: '3', label: '3 (Multi-Hit)' },
+        { value: '5', label: '5 (Multi-Hit)' },
+        { value: '7', label: '7 (Multi-Hit)' },
+        { value: '10', label: '10 (Multi-Hit)' },
+    ];
+    input.innerHTML = hitsOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    input.value = String(item.hits ?? 1);
+
+    input.addEventListener('change', () => {
+        saveUndoState();
+        const newHits = Number(input.value);
+        item.hits = newHits;
+        // Also update hitsLeft to match (for editor preview)
+        item.hitsLeft = newHits;
+        item.used = false;
+        updatePanels();
+    });
+
+    label.appendChild(input);
+    wrap.appendChild(label);
+
+    // Description
+    const descSpan = document.createElement('span');
+    descSpan.className = 'field-desc';
+    descSpan.style.cssText = 'display:block; font-size:10px; color:#94a3b8; margin:2px 0 8px 0; line-height:1.4;';
+    descSpan.textContent = '1 = normaler ?-Block. 2+ = oranger Multi-Hit-Block (zeigt Treffer-Anzahl, wie Mario).';
+    wrap.appendChild(descSpan);
 }
 
 function addExitFields(wrap, item) {
@@ -830,6 +942,9 @@ function updatePanels(refreshSelection = true) {
         (state.level.checkpoints || []).length,
         (state.level.shadowAreas || []).length,
         (state.level.keys || []).length,
+        (state.level.hazards || []).length,
+        (state.level.npcs || []).length,
+        (state.level.dataLogs || []).length,
         2, // spawn + exit
     ].reduce((a, b) => a + b, 0);
     $('counts').textContent = `${counts} Objekte`;
@@ -853,7 +968,13 @@ function updateObjectList() {
     state.level.platforms.forEach((item, i) => items.push({ group: 'platforms', item, label: `Plattform ${i + 1}`, color: COLORS.platform, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.shadowPlatforms || []).forEach((item, i) => items.push({ group: 'shadowPlatforms', item, label: `Shadow ${i + 1}`, color: COLORS.shadowPlatform, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     state.level.gems.forEach((item, i) => items.push({ group: 'gems', item, label: `Gem ${i + 1}`, color: COLORS.gem, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
-    state.level.bonusBlocks.forEach((item, i) => items.push({ group: 'bonusBlocks', item, label: `Bonus ${i + 1}`, color: COLORS.bonusBlock, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    state.level.bonusBlocks.forEach((item, i) => {
+        const hits = item.hits ?? 1;
+        const isMulti = hits > 1;
+        const color = isMulti ? COLORS.bonusBlockMulti : COLORS.bonusBlock;
+        const hitLabel = isMulti ? `Bonus x${hits}` : `Bonus`;
+        items.push({ group: 'bonusBlocks', item, label: `${hitLabel} ${i + 1}`, color, pos: `${Math.round(item.x)},${Math.round(item.y)}` });
+    });
     state.level.enemies.forEach((item, i) => {
         const type = item.type || 'walker';
         items.push({ group: 'enemies', item, label: `${type} ${i + 1}`, color: getEnemyColor(type), pos: `${Math.round(item.x)},${Math.round(item.y)}` });
@@ -866,7 +987,8 @@ function updateObjectList() {
     (state.level.hazards || []).forEach((item, i) => {
         const type = item.type || 'laser_grid';
         const color = type === 'security_cam' ? COLORS.hazardCam : type === 'tripwire' ? COLORS.hazardTripwire : COLORS.hazardLaser;
-        items.push({ group: 'hazards', item, label: `${type} ${i + 1}`, color, pos: `${Math.round(item.x)},${Math.round(item.y)}` });
+        const hazardLabels = { laser_grid: 'Laser', security_cam: 'Cam', tripwire: 'Tripwire' };
+        items.push({ group: 'hazards', item, label: `${hazardLabels[type] || type} ${i + 1}`, color, pos: `${Math.round(item.x)},${Math.round(item.y)}` });
     });
     (state.level.npcs || []).forEach((item, i) => items.push({ group: 'npcs', item, label: `${item.name || 'NPC'} ${i + 1}`, color: COLORS.npc, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.dataLogs || []).forEach((item, i) => items.push({ group: 'dataLogs', item, label: `Log ${item.logId || i + 1}`, color: COLORS.dataLog, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
@@ -1305,11 +1427,15 @@ function drawEnemyOnCanvas(item) {
 
 function drawBonusBlock(item, color, label) {
     const x = item.x - state.cameraX;
-    const isMulti = (item.hits ?? 1) > 1;
+    const hits = item.hits ?? 1;
+    const isMulti = hits > 1;
 
-    ctx.fillStyle = color + '55';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    // Multi-hit blocks have an orange tint, single-hit are purple
+    const bodyColor = isMulti ? COLORS.bonusBlockMulti : color;
+
+    ctx.fillStyle = bodyColor + '55';
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = isMulti ? 3 : 2;
     ctx.fillRect(x, item.y, item.width, item.height);
     ctx.strokeRect(x, item.y, item.width, item.height);
 
@@ -1317,62 +1443,218 @@ function drawBonusBlock(item, color, label) {
     ctx.fillStyle = isMulti ? '#fb923c' : '#facc15';
     ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(isMulti ? `${item.hits ?? 1}` : '?', x + item.width / 2, item.y + item.height / 2 + 5);
+    ctx.fillText(isMulti ? `${hits}` : '?', x + item.width / 2, item.y + item.height / 2 + 5);
     ctx.textAlign = 'left';
+
+    // Multi-hit indicator dots below the number
+    if (isMulti) {
+        const dotY = item.y + item.height - 6;
+        const dotSpacing = 6;
+        const startX = x + item.width / 2 - ((hits - 1) * dotSpacing) / 2;
+        for (let i = 0; i < hits; i++) {
+            ctx.fillStyle = '#fb923c';
+            ctx.beginPath();
+            ctx.arc(startX + i * dotSpacing, dotY, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
 
     // Label with reward type
     ctx.fillStyle = '#eef8ff';
     ctx.font = '10px monospace';
-    ctx.fillText(label, x + 2, item.y - 4);
+    const rewardLabel = item.reward ? ` [${item.reward}]` : '';
+    ctx.fillText(label + rewardLabel, x + 2, item.y - 4);
 }
 
 function drawHazard(item) {
     const x = item.x - state.cameraX;
-    let color, symbol;
+    const time = Date.now() * 0.001;
 
     switch (item.type) {
-        case 'laser_grid':
-            color = COLORS.hazardLaser;
-            symbol = '~~~';
+        case 'laser_grid': {
+            const color = COLORS.hazardLaser;
+            // Draw laser beam as a glowing red line
+            const pulse = 0.6 + Math.sin(time * 6) * 0.4;
+
+            // Glow
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10 * pulse;
+
+            // Beam line
+            ctx.strokeStyle = color;
+            ctx.lineWidth = item.height || 4;
+            ctx.globalAlpha = 0.7 + pulse * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(x, item.y + (item.height || 4) / 2);
+            ctx.lineTo(x + item.width, item.y + (item.height || 4) / 2);
+            ctx.stroke();
+
+            // Emitter dots at endpoints
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, item.y + (item.height || 4) / 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + item.width, item.y + (item.height || 4) / 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+
+            // Collision area (subtle dashed outline)
+            ctx.globalAlpha = 0.3;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, item.y, item.width, item.height || 4);
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+
+            // Label
+            ctx.fillStyle = '#eef8ff';
+            ctx.font = '9px monospace';
+            ctx.fillText('LASER', x + 2, item.y - 4);
+
+            // Orientation indicator
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '8px monospace';
+            ctx.fillText(item.orientation || 'horizontal', x + item.width + 4, item.y + 10);
+
+            // Damage indicator
+            if (item.damage) {
+                ctx.fillStyle = color;
+                ctx.fillText(`dmg:${item.damage}`, x + item.width + 4, item.y + 22);
+            }
             break;
-        case 'security_cam':
-            color = COLORS.hazardCam;
-            symbol = 'CAM';
+        }
+
+        case 'security_cam': {
+            const color = COLORS.hazardCam;
+            const camX = x;
+            const camY = item.y;
+
+            // Camera body
+            ctx.fillStyle = color + '66';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.fillRect(camX, camY, item.width, item.height);
+            ctx.strokeRect(camX, camY, item.width, item.height);
+
+            // Vision cone (simplified triangle)
+            const range = item.range || 250;
+            const halfCone = (item.coneAngle || Math.PI / 3) / 2;
+            const direction = item._angle ?? 0;
+            const camCenterX = camX + item.width / 2;
+            const camCenterY = camY + item.height;
+
+            ctx.fillStyle = color + '18';
+            ctx.strokeStyle = color + '40';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(camCenterX, camCenterY);
+            ctx.lineTo(
+                camCenterX + Math.cos(direction - halfCone) * range,
+                camCenterY + Math.sin(direction - halfCone) * range
+            );
+            ctx.lineTo(
+                camCenterX + Math.cos(direction + halfCone) * range,
+                camCenterY + Math.sin(direction + halfCone) * range
+            );
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Camera lens dot
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(camCenterX, camCenterY - 3, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = '#eef8ff';
+            ctx.font = '9px monospace';
+            ctx.fillText('CAM', camX + 2, camY - 4);
+
+            // Range indicator
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '8px monospace';
+            ctx.fillText(`r:${range}`, camX + item.width + 4, camY + 10);
             break;
-        case 'tripwire':
-            color = COLORS.hazardTripwire;
-            symbol = '---';
+        }
+
+        case 'tripwire': {
+            const color = COLORS.hazardTripwire;
+
+            // Draw as a thin wire with endpoint markers
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(x, item.y + (item.height || 8) / 2);
+            ctx.lineTo(x + item.width, item.y + (item.height || 8) / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Endpoint markers (small circles)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, item.y + (item.height || 8) / 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + item.width, item.y + (item.height || 8) / 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Collision area (subtle)
+            ctx.fillStyle = color + '15';
+            ctx.fillRect(x, item.y, item.width, item.height || 8);
+            ctx.strokeStyle = color + '40';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(x, item.y, item.width, item.height || 8);
+            ctx.setLineDash([]);
+
+            // Label
+            ctx.fillStyle = '#eef8ff';
+            ctx.font = '9px monospace';
+            ctx.fillText('TRIPWIRE', x + 2, item.y - 4);
             break;
-        default:
-            color = COLORS.hazardLaser;
-            symbol = '???';
+        }
+
+        default: {
+            const color = COLORS.hazardLaser;
+            ctx.fillStyle = color + '44';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.fillRect(x, item.y, item.width, item.height);
+            ctx.strokeRect(x, item.y, item.width, item.height);
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('???', x + item.width / 2, item.y + item.height / 2 + 4);
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#eef8ff';
+            ctx.font = '9px monospace';
+            ctx.fillText(item.type || 'hazard', x + 2, item.y - 3);
+        }
     }
 
-    ctx.fillStyle = color + '44';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 3]);
-    ctx.fillRect(x, item.y, item.width, item.height);
-    ctx.strokeRect(x, item.y, item.width, item.height);
-    ctx.setLineDash([]);
-
-    // Hazard type indicator
-    ctx.fillStyle = color;
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(symbol, x + item.width / 2, item.y + item.height / 2 + 4);
-    ctx.textAlign = 'left';
-
-    // Hackable indicator
+    // Hackable indicator (for all hazard types)
     if (item.hackable) {
         ctx.fillStyle = '#22c55e';
-        ctx.font = '8px monospace';
-        ctx.fillText('HACK', x + item.width + 3, item.y + 10);
+        ctx.font = 'bold 9px monospace';
+        ctx.fillText('HACK', x + item.width + 4, item.y - 3);
     }
 
-    ctx.fillStyle = '#eef8ff';
-    ctx.font = '9px monospace';
-    ctx.fillText(item.type || 'hazard', x + 2, item.y - 3);
+    // Alarm indicator
+    if (item.triggerAlarm) {
+        ctx.fillStyle = '#facc15';
+        ctx.font = '8px monospace';
+        ctx.fillText('ALM', x + item.width + 4, item.y + (item.height || 8) + 12);
+    }
 }
 
 function drawNPC(item) {
@@ -1681,6 +1963,7 @@ function exportCode() {
             delete b.bumpTimer;
             delete b.spawnRequest;
             delete b.hitsLeft;
+            delete b._hitCooldown;
         });
     }
     if (cleanLevel.dataLogs) {

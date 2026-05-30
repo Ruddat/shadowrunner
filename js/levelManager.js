@@ -73,6 +73,7 @@ export function initializeLevelState(level) {
             block.bumpTimer = 0;
             block.spawnRequest = null;
             block.hitsLeft = block.hits ?? 1; // Multi-hit blocks reset
+            block._hitCooldown = 0; // Reset hit cooldown
         }
     }
 }
@@ -341,6 +342,13 @@ export function updateBonusBlocks(dt) {
     for (const block of level.bonusBlocks) {
         if (block.bumpTimer > 0) {
             block.bumpTimer -= dt;
+        }
+        // Hit cooldown timer
+        if (block._hitCooldown && block._hitCooldown > 0) {
+            block._hitCooldown -= dt;
+            if (block._hitCooldown <= 0) {
+                block._hitCooldown = 0;
+            }
         }
     }
 }
