@@ -76,3 +76,37 @@ export function detectWallContact(player, platforms) {
         wallSide: touchingLeft ? 'left' : (touchingRight ? 'right' : null),
     };
 }
+
+/**
+ * Raycast: check if a line from (x1,y1) to (x2,y2) is blocked by any platform.
+ * Uses DDA-style stepping along the line.
+ * Returns true if the line of sight is CLEAR (no platform blocks it).
+ */
+export function raycastClear(x1, y1, x2, y2, platforms) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < 1) return true;
+
+    const steps = Math.ceil(distance / 8); // 8px step size
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+
+    for (let i = 1; i < steps; i++) {
+        const px = x1 + stepX * i;
+        const py = y1 + stepY * i;
+
+        for (const platform of platforms) {
+            if (
+                px >= platform.x &&
+                px <= platform.x + platform.width &&
+                py >= platform.y &&
+                py <= platform.y + platform.height
+            ) {
+                return false; // Blocked by platform
+            }
+        }
+    }
+
+    return true; // Clear line of sight
+}

@@ -19,6 +19,7 @@ import { rectsOverlap } from './collision.js';
 import { spawnParticles } from './particles.js';
 import { state } from './gameState.js';
 import { showCenterMessage } from './screens.js';
+import { isEnemyAlert } from './stealthSystem.js';
 import { playSound } from './audioManager.js';
 import { getEnemySprite, AnimationState } from './spriteManager.js';
 
@@ -518,6 +519,9 @@ function updateEnemyShooter(enemy, dt) {
     const { player, enemyProjectiles } = state;
 
     if (!enemy.canShoot) return;
+
+    // Stealth: enemies only shoot when alert (can see the player)
+    if (!isEnemyAlert(enemy)) return;
 
     const distanceX = Math.abs((enemy.x + enemy.width / 2) - (player.x + player.width / 2));
     const distanceY = Math.abs((enemy.y + enemy.height / 2) - (player.y + player.height / 2));

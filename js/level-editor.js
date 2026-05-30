@@ -31,6 +31,7 @@ const state = {
         hackTerminals: true,
         shopTerminals: true,
         checkpoints: true,
+        shadowAreas: true,
         keys: true,
     },
     autoSaveInterval: null,
@@ -51,6 +52,7 @@ const COLORS = {
     hackTerminal: '#ff6600',
     shopTerminal: '#c084fc',
     checkpoint: '#22c55e',
+    shadowArea: '#4a1a6b',
     spawn: '#55ff9c',
     exit: '#b388ff',
     key: '#facc15',
@@ -77,6 +79,7 @@ function createEmptyLevel() {
         shopTerminals: [],
         checkpoints: [],
         keys: [],
+        shadowAreas: [],
         fx: {
             stars: false,
             fog: true,
@@ -142,6 +145,7 @@ function toolLabel(tool) {
         hackTerminal: 'Hack-Terminal',
         shopTerminal: 'Shop-Terminal',
         checkpoint: 'Checkpoint',
+        shadowArea: 'Shadow-Area',
         spawn: 'Spawn',
         exit: 'Exit',
         key: 'Schlüssel',
@@ -352,6 +356,12 @@ function addObject(type, x, y) {
         state.level.checkpoints.push(item);
         selectObject('checkpoints', item);
 
+    } else if (type === 'shadowArea') {
+        item = { x, y, width: 160, height: 80 };
+        if (!state.level.shadowAreas) state.level.shadowAreas = [];
+        state.level.shadowAreas.push(item);
+        selectObject('shadowAreas', item);
+
     } else if (type === 'key') {
         item = { x, y, width: 26, height: 26, collected: false };
         if (!state.level.keys) state.level.keys = [];
@@ -491,6 +501,9 @@ function hitTest(worldX, worldY) {
     if (state.level.checkpoints) {
         for (const item of state.level.checkpoints) tests.push({ group: 'checkpoints', item, rect: item });
     }
+    if (state.level.shadowAreas) {
+        for (const item of state.level.shadowAreas) tests.push({ group: 'shadowAreas', item, rect: item });
+    }
     if (state.level.keys) {
         for (const item of state.level.keys) tests.push({ group: 'keys', item, rect: { x: item.x, y: item.y, width: item.width ?? 26, height: item.height ?? 26 } });
     }
@@ -544,6 +557,7 @@ function updateSelectionPanel() {
         hackTerminals: 'Hack-Terminal',
         shopTerminals: 'Shop-Terminal',
         checkpoints: 'Checkpoint',
+        shadowAreas: 'Shadow-Area',
         keys: 'Schlüssel',
         spawn: 'Spawn',
         exit: 'Exit',
@@ -718,6 +732,7 @@ function updatePanels(refreshSelection = true) {
         (state.level.hackTerminals || []).length,
         (state.level.shopTerminals || []).length,
         (state.level.checkpoints || []).length,
+        (state.level.shadowAreas || []).length,
         (state.level.keys || []).length,
         2, // spawn + exit
     ].reduce((a, b) => a + b, 0);
@@ -750,6 +765,7 @@ function updateObjectList() {
     (state.level.hackTerminals || []).forEach((item, i) => items.push({ group: 'hackTerminals', item, label: `Hack ${i + 1}`, color: COLORS.hackTerminal, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.shopTerminals || []).forEach((item, i) => items.push({ group: 'shopTerminals', item, label: `Shop ${i + 1}`, color: COLORS.shopTerminal, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.checkpoints || []).forEach((item, i) => items.push({ group: 'checkpoints', item, label: `CP ${i + 1}`, color: COLORS.checkpoint, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.shadowAreas || []).forEach((item, i) => items.push({ group: 'shadowAreas', item, label: `Shadow ${i + 1}`, color: COLORS.shadowArea, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.keys || []).forEach((item, i) => items.push({ group: 'keys', item, label: `Schlüssel ${i + 1}`, color: COLORS.key, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     items.push({ group: 'spawn', item: state.level.spawn, label: 'Spawn', color: COLORS.spawn, pos: `${Math.round(state.level.spawn.x)},${Math.round(state.level.spawn.y)}` });
     items.push({ group: 'exit', item: state.level.exit, label: 'Exit', color: COLORS.exit, pos: `${Math.round(state.level.exit.x)},${Math.round(state.level.exit.y)}` });
@@ -1085,6 +1101,35 @@ function drawCheckpoint(item) {
     }
 }
 
+function drawShadowArea(item) {
+    const x = item.x - state.cameraX;
+    const color = COLORS.shadowArea;
+
+    // Subtle purple shadow fill
+    const gradient = ctx.createLinearGradient(x, item.y, x, item.y + item.height);
+    gradient.addColorStop(0, 'rgba(74, 26, 107, 0.25)');
+    gradient.addColorStop(1, 'rgba(74, 26, 107, 0.15)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, item.y, item.width, item.height);
+
+    // Dashed border
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x, item.y, item.width, item.height);
+    ctx.setLineDash([]);
+
+    // Label
+    ctx.fillStyle = '#b388ff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SHADOW', x + item.width / 2, item.y + item.height / 2 - 4);
+    ctx.font = '8px monospace';
+    ctx.fillStyle = '#8a5cb8';
+    ctx.fillText('stealth zone', x + item.width / 2, item.y + item.height / 2 + 8);
+    ctx.textAlign = 'left';
+}
+
 function drawEnemyOnCanvas(item) {
     const type = item.type || 'walker';
     const color = getEnemyColor(type);
@@ -1242,6 +1287,14 @@ function drawMinimap() {
         }
     }
 
+    // Shadow Areas
+    if (state.level.shadowAreas) {
+        mCtx.fillStyle = COLORS.shadowArea + '66';
+        for (const s of state.level.shadowAreas) {
+            mCtx.fillRect(s.x * scaleX, s.y * scaleY, Math.max(3, s.width * scaleX), Math.max(2, s.height * scaleY));
+        }
+    }
+
     // Spawn
     mCtx.fillStyle = COLORS.spawn;
     mCtx.fillRect(state.level.spawn.x * scaleX - 2, state.level.spawn.y * scaleY - 2, 4, 4);
@@ -1309,6 +1362,10 @@ function draw() {
 
     if (state.layerVisibility.checkpoints && state.level.checkpoints) {
         state.level.checkpoints.forEach((item) => drawCheckpoint(item));
+    }
+
+    if (state.layerVisibility.shadowAreas && state.level.shadowAreas) {
+        state.level.shadowAreas.forEach((item) => drawShadowArea(item));
     }
 
     if (state.layerVisibility.keys && state.level.keys) {
@@ -1408,6 +1465,7 @@ function importLevel(text) {
         hackTerminals: parsed.hackTerminals || [],
         shopTerminals: parsed.shopTerminals || [],
         checkpoints: parsed.checkpoints || [],
+        shadowAreas: parsed.shadowAreas || [],
         keys: parsed.keys || [],
         fx: parsed.fx || createEmptyLevel().fx,
     };

@@ -113,6 +113,10 @@ import { initPlayerSprite, initEnemySprites } from './spriteManager.js';
 // Options Menu
 import { initOptionsMenu, updateOptionsMenu, drawOptionsMenu, handleOptionsInput, setupFullscreenResize, isFullscreenOptionSelected, markFullscreenHandled } from './optionsMenu.js';
 
+// Stealth System
+import { updateStealth, initStealthForLevel, getStealthHUDData, isEnemyAlert } from './stealthSystem.js';
+import { drawSightCones, drawShadowAreas, drawStealthHUD, drawAlertFlash, triggerAlertFlash } from './sightCones.js';
+
 // Speedrun timer helpers
 import { formatTime, getBestTime } from './hudSystem.js';
 
@@ -257,6 +261,7 @@ function update(dt) {
     updateGems();
     updateExit();
     updateKeyPortalSystem(player, state.currentLevel);
+    updateStealth(dt);
     updateEnemies(dt);
     updateEnemyProjectiles(dt);
     updateBoss(dt);
@@ -884,11 +889,18 @@ function render() {
     drawBackground();
     drawLevelFxBehind(ctx, camera, currentLevel, CONFIG);
 
+    // Shadow areas (subtle dark zones)
+    drawShadowAreas(ctx, camera, currentLevel);
+
     drawPlatforms();
     drawBonusBlocks();
     drawFloatingItems(ctx, camera);
     drawGems();
     drawExit();
+
+    // Enemy sight cones (rendered behind enemies)
+    drawSightCones(ctx, camera, currentLevel, player);
+
     drawEnemies();
     drawBoss();
     drawBossProjectiles();
@@ -899,6 +911,12 @@ function render() {
 
     drawLevelFxFront(ctx, camera, currentLevel, CONFIG);
     drawHud();
+
+    // Stealth HUD indicator
+    drawStealthHUD(ctx, player, state.stealthState);
+
+    // Alert flash effect
+    drawAlertFlash(ctx, state._renderDt || 0);
 
     // Checkpoint indicators
     drawCheckpoints();
@@ -953,6 +971,7 @@ function loop(timestamp) {
     const dt = Math.min((timestamp - state.lastTime) / 1000, 0.033);
     state.lastTime = timestamp;
     state.introTime = timestamp;
+    state._renderDt = dt;
 
     update(dt);
     render();

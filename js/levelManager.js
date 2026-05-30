@@ -26,11 +26,15 @@ import { initLevelFx } from './levelFx.js';
 import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
 import { deleteSave } from './saveSystem.js';
 import { resetShopPurchases } from './shopSystem.js';
+import { initStealthForLevel } from './stealthSystem.js';
 
 export function initializeLevelState(level) {
     const { player } = state;
 
     player.deathsThisLevel = 0;
+
+    // Initialize stealth system for this level
+    initStealthForLevel(level);
 
     if (level.enemies) {
         for (const enemy of level.enemies) {

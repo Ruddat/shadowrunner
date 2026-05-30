@@ -55,4 +55,8 @@ export const state = {
     // Options menu state
     optionsOpen: false,
     optionsPreviousState: null,
+
+    // Stealth system state
+    stealthState: null,       // { hidden: bool, visibility: 0-1, source: string }
+    previousAlertState: null, // for detecting alert state transitions
 };
