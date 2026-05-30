@@ -12,49 +12,53 @@ import { awardXP } from './skillTree.js';
 
 const LEVEL_COMPLETE_UI = {
     panel: {
-        width: 640,
-        height: 520,
-        y: 28,
+        width: 700,
+        height: 440,
+        y: 32,
         background: 'rgba(5, 5, 16, 0.95)',
         border: '#21e6ff',
         shadow: '#21e6ff',
     },
 
     title: {
-        y: 80,
+        y: 52,
         color: '#ff2bd6',
-        font: '900 42px monospace',
+        font: '900 38px monospace',
         text: 'LEVEL COMPLETE',
     },
 
     subtitle: {
-        y: 118,
+        y: 84,
         color: '#ffffff',
-        font: '900 21px monospace',
+        font: '900 19px monospace',
     },
 
-    rows: {
-        startY: 160,
-        gap: 28,
-        bonusGap: 38,
-        leftOffset: 230,
-        valueOffset: 230,
-        font: '900 18px monospace',
+    // 2-column grid layout
+    grid: {
+        startY: 115,
+        col1X: 80,         // left column label X (relative to panel)
+        col1ValueX: 280,   // left column value X (relative to panel)
+        col2X: 380,         // right column label X (relative to panel)
+        col2ValueX: 620,    // right column value X (relative to panel)
+        rowGap: 28,
+        bonusGap: 12,
+        font: '900 16px monospace',
+        separatorY: 115,    // thin line between title and grid
     },
 
     total: {
-        height: 44,
+        height: 40,
         background: 'rgba(255, 255, 255, 0.12)',
         labelColor: '#ffffff',
         valueColor: '#21e6ff',
-        font: '900 24px monospace',
+        font: '900 22px monospace',
     },
 
     footer: {
         color: '#ffffff',
         subColor: '#94a3b8',
-        font: '900 16px monospace',
-        subFont: '700 14px monospace',
+        font: '900 15px monospace',
+        subFont: '700 13px monospace',
         text: 'PRESS ENTER OR CLICK TO NEXT LEVEL',
     },
 };
@@ -559,9 +563,15 @@ export function drawLevelCompleteScreen() {
     const panelX = CONFIG.width / 2 - ui.panel.width / 2;
     const panelY = ui.panel.y;
     const panelBottom = panelY + ui.panel.height;
+    const g = ui.grid;
 
-    const rowLeft = CONFIG.width / 2 - ui.rows.leftOffset;
-    const rowValueX = CONFIG.width / 2 + ui.rows.valueOffset;
+    // Absolute column positions
+    const c1L = panelX + g.col1X;
+    const c1V = panelX + g.col1ValueX;
+    const c2L = panelX + g.col2X;
+    const c2V = panelX + g.col2ValueX;
+
+    const logsInfo = getLoreCountInfo();
 
     ctx.save();
 
@@ -593,77 +603,80 @@ export function drawLevelCompleteScreen() {
     ctx.font = ui.subtitle.font;
     ctx.fillText(levelStats?.levelName ?? level.name ?? 'STAGE CLEAR', CONFIG.width / 2, panelY + ui.subtitle.y);
 
-    // Stats rows (dynamic y tracking)
-    let y = panelY + ui.rows.startY;
+    // Separator line
+    const sepY = panelY + g.separatorY;
+    ctx.strokeStyle = 'rgba(33, 230, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(panelX + 30, sepY);
+    ctx.lineTo(panelX + ui.panel.width - 30, sepY);
+    ctx.stroke();
 
-    drawResultRow('TIME', timeText, '#21e6ff', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
+    // ── 2-COLUMN GRID ──────────────────────────────────────────────
+    let y = panelY + g.startY + 14;
 
-    drawResultRow('GEMS', `${score.gemsCollected} / ${score.gemsTotal}`, '#ff2bd6', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
+    // Row 1: TIME | TIME BONUS
+    drawGridRow(c1L, c1V, 'TIME', timeText, '#21e6ff',
+                c2L, c2V, 'TIME BONUS', `+${score.timeBonus}`, '#21e6ff', y);
+    y += g.rowGap;
 
-    drawResultRow('ENEMIES', `${score.enemiesDefeated} / ${score.enemiesTotal}`, '#facc15', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
+    // Row 2: GEMS | GEM BONUS
+    drawGridRow(c1L, c1V, 'GEMS', `${score.gemsCollected} / ${score.gemsTotal}`, '#ff2bd6',
+                c2L, c2V, 'GEM BONUS', `+${score.gemBonus}`, '#ff2bd6', y);
+    y += g.rowGap;
 
-    drawResultRow('DEATHS', `${player.deathsThisLevel ?? 0}`, '#fb7185', rowLeft, rowValueX, y);
-    y += ui.rows.bonusGap;
+    // Row 3: ENEMIES | ENEMY BONUS
+    drawGridRow(c1L, c1V, 'ENEMIES', `${score.enemiesDefeated} / ${score.enemiesTotal}`, '#facc15',
+                c2L, c2V, 'ENEMY BONUS', `+${score.enemyBonus}`, '#facc15', y);
+    y += g.rowGap;
 
-    // Bonus rows
-    drawResultRow('TIME BONUS', `+${score.timeBonus}`, '#21e6ff', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
+    // Row 4: DEATHS | NO DEATH BONUS
+    drawGridRow(c1L, c1V, 'DEATHS', `${player.deathsThisLevel ?? 0}`, '#fb7185',
+                c2L, c2V, 'NO DEATH', `+${score.noDeathBonus}`, '#22c55e', y);
+    y += g.rowGap;
 
-    drawResultRow('GEM BONUS', `+${score.gemBonus}`, '#ff2bd6', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
-
-    drawResultRow('ENEMY BONUS', `+${score.enemyBonus}`, '#facc15', rowLeft, rowValueX, y);
-    y += ui.rows.gap;
-
-    drawResultRow('NO DEATH BONUS', `+${score.noDeathBonus}`, '#22c55e', rowLeft, rowValueX, y);
-
-    // --- Playstyle Rating ---
+    // Row 5: DATA LOGS | PLAYSTYLE
     const playstyle = calculatePlaystyleInline(score);
+    const playstyleText = playstyle ? playstyle.style : '-';
+    const playstyleColor = playstyle ? playstyle.color : '#94a3b8';
+    drawGridRow(c1L, c1V, 'DATA LOGS', `${logsInfo.collected} / ${logsInfo.total}`, '#facc15',
+                c2L, c2V, 'PLAYSTYLE', playstyleText, playstyleColor, y);
+
+    // ── PLAYSTYLE BADGE (below grid) ──────────────────────────────
+    y += g.rowGap + g.bonusGap;
+
     if (playstyle) {
-        y += ui.rows.bonusGap;
-
         const badgeX = CONFIG.width / 2;
-        const badgeY = y;
+        const badgeW = 480;
+        const badgeH = 32;
 
-        ctx.save();
-        // Badge background
         ctx.fillStyle = 'rgba(5, 5, 16, 0.9)';
-        ctx.fillRect(badgeX - 160, badgeY - 4, 320, 38);
+        ctx.fillRect(badgeX - badgeW / 2, y - 2, badgeW, badgeH);
 
-        // Badge border with playstyle color
         ctx.strokeStyle = playstyle.color;
         ctx.lineWidth = 2;
-        ctx.strokeRect(badgeX - 160, badgeY - 4, 320, 38);
+        ctx.strokeRect(badgeX - badgeW / 2, y - 2, badgeW, badgeH);
 
         // Style label
         ctx.shadowColor = playstyle.color;
         ctx.shadowBlur = 12;
         ctx.fillStyle = playstyle.color;
-        ctx.font = '900 20px monospace';
+        ctx.font = '900 18px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(playstyle.style, badgeX - 60, badgeY + 22);
+        ctx.fillText(playstyle.style, badgeX - 120, y + 20);
 
         // Description
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '700 11px monospace';
-        ctx.fillText(playstyle.description, badgeX + 50, badgeY + 20);
+        ctx.font = '700 12px monospace';
+        ctx.fillText(playstyle.description, badgeX + 80, y + 18);
 
-        ctx.restore();
+        y += badgeH + 8;
     }
 
-    // --- Data Logs Collected ---
-    const logsInfo = getLoreCountInfo();
-    y += 44;
-    drawResultRow('DATA LOGS', `${logsInfo.collected} / ${logsInfo.total}`, '#facc15', rowLeft, rowValueX, y);
-
-    // Total bar (positioned dynamically after all rows, inside panel)
-    y += 16;
-    const totalX = panelX + 72;
-    const totalWidth = ui.panel.width - 144;
+    // ── TOTAL BAR ──────────────────────────────────────────────────
+    const totalX = panelX + 40;
+    const totalWidth = ui.panel.width - 80;
 
     ctx.fillStyle = ui.total.background;
     ctx.fillRect(totalX, y, totalWidth, ui.total.height);
@@ -671,29 +684,58 @@ export function drawLevelCompleteScreen() {
     ctx.fillStyle = ui.total.labelColor;
     ctx.font = ui.total.font;
     ctx.textAlign = 'left';
-    ctx.fillText('TOTAL', totalX + 18, y + 30);
+    ctx.fillText('TOTAL', totalX + 18, y + 27);
 
     ctx.fillStyle = ui.total.valueColor;
     ctx.textAlign = 'right';
-    ctx.fillText(`${score.total}`, totalX + totalWidth - 18, y + 30);
+    ctx.fillText(`${score.total}`, totalX + totalWidth - 18, y + 27);
 
-    // Footer (positioned below panel, no overlap)
-    const footerY = panelBottom + 20;
+    // ── FOOTER (below panel) ──────────────────────────────────────
+    const footerY = panelBottom + 18;
 
     ctx.textAlign = 'center';
     ctx.fillStyle = ui.footer.color;
     ctx.font = ui.footer.font;
     ctx.fillText(ui.footer.text, CONFIG.width / 2, footerY);
 
-    // Cumulative score (clearly labeled differently from level total)
     ctx.fillStyle = ui.footer.subColor;
     ctx.font = ui.footer.subFont;
-    ctx.fillText(`CUMULATIVE SCORE: ${player.score ?? 0}`, CONFIG.width / 2, footerY + 22);
-
-    // Data logs mini-info (right-aligned)
-    ctx.fillText(`DATA LOGS: ${logsInfo.collected} / ${logsInfo.total}`, CONFIG.width / 2, footerY + 40);
+    ctx.fillText(`CUMULATIVE: ${player.score ?? 0}`, CONFIG.width / 2, footerY + 20);
 
     ctx.restore();
+}
+
+/**
+ * Draw a single row with left and right column entries.
+ */
+function drawGridRow(l1X, v1X, label1, value1, color1,
+                     l2X, v2X, label2, value2, color2, y) {
+    const { ctx } = state;
+    const font = LEVEL_COMPLETE_UI.grid.font;
+
+    // Left column
+    ctx.fillStyle = color1;
+    ctx.textAlign = 'left';
+    ctx.font = font;
+    ctx.fillText(label1, l1X, y);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.fillText(value1, v1X, y);
+
+    // Vertical separator (subtle)
+    const sepX = (v1X + l2X) / 2;
+    ctx.fillStyle = 'rgba(33, 230, 255, 0.15)';
+    ctx.fillRect(sepX, y - 12, 1, 18);
+
+    // Right column
+    ctx.fillStyle = color2;
+    ctx.textAlign = 'left';
+    ctx.fillText(label2, l2X, y);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.fillText(value2, v2X, y);
 }
 
 

@@ -25,6 +25,9 @@
                 <button data-tool="checkpoint">Checkpoint</button>
                 <button data-tool="shadowArea">Shadow-Area</button>
                 <button data-tool="key">Schlüssel</button>
+                <button data-tool="hazard">Hazard</button>
+                <button data-tool="npc">NPC</button>
+                <button data-tool="dataLog">Data Log</button>
                 <button data-tool="spawn">Spawn</button>
                 <button data-tool="exit">Exit</button>
             </div>
@@ -40,6 +43,18 @@
                         <option value="mech">Mech (stürmt)</option>
                         <option value="turret">Turret (Geschütz)</option>
                         <option value="ninja">Ninja (Schatten)</option>
+                    </select>
+                </label>
+            </div>
+
+            <!-- Hazard type sub-tools -->
+            <div class="sub-tools" id="hazardSubTools" style="display:none">
+                <h3>Hazard-Typ</h3>
+                <label>Hazard-Art
+                    <select id="hazardTypeSelect">
+                        <option value="laser_grid">Laser Grid</option>
+                        <option value="security_cam">Security Cam</option>
+                        <option value="tripwire">Tripwire</option>
                     </select>
                 </label>
             </div>
@@ -73,6 +88,9 @@
                 <label class="check layer-check"><input type="checkbox" data-layer="checkpoints" checked> <span class="layer-dot" style="background:#22c55e"></span> Checkpoints</label>
                 <label class="check layer-check"><input type="checkbox" data-layer="shadowAreas" checked> <span class="layer-dot" style="background:#4a1a6b"></span> Shadow-Areas</label>
                 <label class="check layer-check"><input type="checkbox" data-layer="keys" checked> <span class="layer-dot" style="background:#facc15"></span> Schlüssel</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="hazards" checked> <span class="layer-dot" style="background:#ef4444"></span> Hazards</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="npcs" checked> <span class="layer-dot" style="background:#38bdf8"></span> NPCs</label>
+                <label class="check layer-check"><input type="checkbox" data-layer="dataLogs" checked> <span class="layer-dot" style="background:#a78bfa"></span> Data Logs</label>
             </div>
 
             <h2>Aktionen</h2>

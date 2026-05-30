@@ -21,6 +21,7 @@ const state = {
     redoStack: [],
     maxUndo: 50,
     currentEnemyType: 'walker',
+    currentHazardType: 'laser_grid',
     clipboard: null,
     layerVisibility: {
         platforms: true,
@@ -33,6 +34,9 @@ const state = {
         checkpoints: true,
         shadowAreas: true,
         keys: true,
+        hazards: true,
+        npcs: true,
+        dataLogs: true,
     },
     autoSaveInterval: null,
     lastAutoSave: null,
@@ -43,6 +47,7 @@ const COLORS = {
     shadowPlatform: '#b388ff',
     gem: '#ffd166',
     bonusBlock: '#ff3fd5',
+    bonusBlockMulti: '#fb923c',
     enemy: '#ff4d6d',
     enemyDrone: '#ff6b00',
     enemyShield: '#3b82f6',
@@ -56,6 +61,11 @@ const COLORS = {
     spawn: '#55ff9c',
     exit: '#b388ff',
     key: '#facc15',
+    hazardLaser: '#ef4444',
+    hazardCam: '#f97316',
+    hazardTripwire: '#fb923c',
+    npc: '#38bdf8',
+    dataLog: '#a78bfa',
     selected: '#ffffff',
     drawing: '#ff2bd6',
 };
@@ -80,6 +90,9 @@ function createEmptyLevel() {
         checkpoints: [],
         keys: [],
         shadowAreas: [],
+        hazards: [],
+        npcs: [],
+        dataLogs: [],
         fx: {
             stars: false,
             fog: true,
@@ -132,6 +145,12 @@ function setTool(tool) {
     if (enemySubTools) {
         enemySubTools.style.display = tool === 'enemy' ? 'block' : 'none';
     }
+
+    // Show/hide hazard type sub-tools
+    const hazardSubTools = $('hazardSubTools');
+    if (hazardSubTools) {
+        hazardSubTools.style.display = tool === 'hazard' ? 'block' : 'none';
+    }
 }
 
 function toolLabel(tool) {
@@ -149,6 +168,9 @@ function toolLabel(tool) {
         spawn: 'Spawn',
         exit: 'Exit',
         key: 'Schlüssel',
+        hazard: 'Hazard',
+        npc: 'NPC',
+        dataLog: 'Data Log',
     }[tool] || tool;
 }
 
@@ -313,9 +335,28 @@ function addObject(type, x, y) {
         selectObject('gems', item);
 
     } else if (type === 'bonusBlock') {
-        item = { x, y, width: 42, height: 42, used: false, bumpTimer: 0, reward: 'gem' };
+        item = { x, y, width: 42, height: 42, used: false, bumpTimer: 0, reward: 'gem', hits: 1 };
         state.level.bonusBlocks.push(item);
         selectObject('bonusBlocks', item);
+
+    } else if (type === 'hazard') {
+        const hazardType = state.currentHazardType || 'laser_grid';
+        item = createHazardByType(hazardType, x, y);
+        if (!state.level.hazards) state.level.hazards = [];
+        state.level.hazards.push(item);
+        selectObject('hazards', item);
+
+    } else if (type === 'npc') {
+        item = { x, y, width: 42, height: 60, name: 'Hacker', dialog: ['Hey, watch your back out there.', 'The corps are watching.'], type: 'info' };
+        if (!state.level.npcs) state.level.npcs = [];
+        state.level.npcs.push(item);
+        selectObject('npcs', item);
+
+    } else if (type === 'dataLog') {
+        item = { x, y, width: 28, height: 28, logId: 'log_01', title: 'Data Fragment', collected: false };
+        if (!state.level.dataLogs) state.level.dataLogs = [];
+        state.level.dataLogs.push(item);
+        selectObject('dataLogs', item);
 
     } else if (type === 'enemy') {
         const enemyType = state.currentEnemyType || 'walker';
@@ -378,6 +419,52 @@ function addObject(type, x, y) {
     }
 
     updatePanels();
+}
+
+function createHazardByType(type, x, y) {
+    switch (type) {
+        case 'laser_grid':
+            return {
+                type: 'laser_grid',
+                x, y,
+                width: 200, height: 4,
+                damage: 15,
+                orientation: 'horizontal',
+                triggerAlarm: true,
+                hackable: false,
+            };
+        case 'security_cam':
+            return {
+                type: 'security_cam',
+                x, y,
+                width: 20, height: 16,
+                range: 250,
+                coneAngle: Math.PI / 3,
+                rotateSpeed: 0.8,
+                minAngle: -Math.PI / 2,
+                maxAngle: Math.PI / 2,
+                triggerAlarm: true,
+                hackable: true,
+            };
+        case 'tripwire':
+            return {
+                type: 'tripwire',
+                x, y,
+                width: 60, height: 8,
+                triggerAlarm: true,
+                hackable: false,
+            };
+        default:
+            return {
+                type: 'laser_grid',
+                x, y,
+                width: 200, height: 4,
+                damage: 15,
+                orientation: 'horizontal',
+                triggerAlarm: true,
+                hackable: false,
+            };
+    }
 }
 
 function createEnemyByType(type, x, y) {
@@ -506,6 +593,15 @@ function hitTest(worldX, worldY) {
     }
     if (state.level.keys) {
         for (const item of state.level.keys) tests.push({ group: 'keys', item, rect: { x: item.x, y: item.y, width: item.width ?? 26, height: item.height ?? 26 } });
+    }
+    if (state.level.hazards) {
+        for (const item of state.level.hazards) tests.push({ group: 'hazards', item, rect: item });
+    }
+    if (state.level.npcs) {
+        for (const item of state.level.npcs) tests.push({ group: 'npcs', item, rect: item });
+    }
+    if (state.level.dataLogs) {
+        for (const item of state.level.dataLogs) tests.push({ group: 'dataLogs', item, rect: { x: item.x, y: item.y, width: item.width ?? 28, height: item.height ?? 28 } });
     }
     tests.push({ group: 'exit', item: state.level.exit, rect: state.level.exit });
     tests.push({ group: 'spawn', item: state.level.spawn, rect: { x: state.level.spawn.x - 10, y: state.level.spawn.y - 10, width: 20, height: 20 } });
@@ -767,6 +863,13 @@ function updateObjectList() {
     (state.level.checkpoints || []).forEach((item, i) => items.push({ group: 'checkpoints', item, label: `CP ${i + 1}`, color: COLORS.checkpoint, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.shadowAreas || []).forEach((item, i) => items.push({ group: 'shadowAreas', item, label: `Shadow ${i + 1}`, color: COLORS.shadowArea, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     (state.level.keys || []).forEach((item, i) => items.push({ group: 'keys', item, label: `Schlüssel ${i + 1}`, color: COLORS.key, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.hazards || []).forEach((item, i) => {
+        const type = item.type || 'laser_grid';
+        const color = type === 'security_cam' ? COLORS.hazardCam : type === 'tripwire' ? COLORS.hazardTripwire : COLORS.hazardLaser;
+        items.push({ group: 'hazards', item, label: `${type} ${i + 1}`, color, pos: `${Math.round(item.x)},${Math.round(item.y)}` });
+    });
+    (state.level.npcs || []).forEach((item, i) => items.push({ group: 'npcs', item, label: `${item.name || 'NPC'} ${i + 1}`, color: COLORS.npc, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
+    (state.level.dataLogs || []).forEach((item, i) => items.push({ group: 'dataLogs', item, label: `Log ${item.logId || i + 1}`, color: COLORS.dataLog, pos: `${Math.round(item.x)},${Math.round(item.y)}` }));
     items.push({ group: 'spawn', item: state.level.spawn, label: 'Spawn', color: COLORS.spawn, pos: `${Math.round(state.level.spawn.x)},${Math.round(state.level.spawn.y)}` });
     items.push({ group: 'exit', item: state.level.exit, label: 'Exit', color: COLORS.exit, pos: `${Math.round(state.level.exit.x)},${Math.round(state.level.exit.y)}` });
 
@@ -1200,6 +1303,133 @@ function drawEnemyOnCanvas(item) {
     }
 }
 
+function drawBonusBlock(item, color, label) {
+    const x = item.x - state.cameraX;
+    const isMulti = (item.hits ?? 1) > 1;
+
+    ctx.fillStyle = color + '55';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, item.y, item.width, item.height);
+    ctx.strokeRect(x, item.y, item.width, item.height);
+
+    // Block symbol
+    ctx.fillStyle = isMulti ? '#fb923c' : '#facc15';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(isMulti ? `${item.hits ?? 1}` : '?', x + item.width / 2, item.y + item.height / 2 + 5);
+    ctx.textAlign = 'left';
+
+    // Label with reward type
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '10px monospace';
+    ctx.fillText(label, x + 2, item.y - 4);
+}
+
+function drawHazard(item) {
+    const x = item.x - state.cameraX;
+    let color, symbol;
+
+    switch (item.type) {
+        case 'laser_grid':
+            color = COLORS.hazardLaser;
+            symbol = '~~~';
+            break;
+        case 'security_cam':
+            color = COLORS.hazardCam;
+            symbol = 'CAM';
+            break;
+        case 'tripwire':
+            color = COLORS.hazardTripwire;
+            symbol = '---';
+            break;
+        default:
+            color = COLORS.hazardLaser;
+            symbol = '???';
+    }
+
+    ctx.fillStyle = color + '44';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.fillRect(x, item.y, item.width, item.height);
+    ctx.strokeRect(x, item.y, item.width, item.height);
+    ctx.setLineDash([]);
+
+    // Hazard type indicator
+    ctx.fillStyle = color;
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(symbol, x + item.width / 2, item.y + item.height / 2 + 4);
+    ctx.textAlign = 'left';
+
+    // Hackable indicator
+    if (item.hackable) {
+        ctx.fillStyle = '#22c55e';
+        ctx.font = '8px monospace';
+        ctx.fillText('HACK', x + item.width + 3, item.y + 10);
+    }
+
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '9px monospace';
+    ctx.fillText(item.type || 'hazard', x + 2, item.y - 3);
+}
+
+function drawNPC(item) {
+    const x = item.x - state.cameraX;
+    const color = COLORS.npc;
+
+    ctx.fillStyle = color + '55';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, item.y, item.width, item.height);
+    ctx.strokeRect(x, item.y, item.width, item.height);
+
+    // NPC face icon
+    ctx.fillStyle = color;
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', x + item.width / 2, item.y + item.height / 2 + 5);
+    ctx.textAlign = 'left';
+
+    // Name label
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '9px monospace';
+    ctx.fillText(item.name || 'NPC', x + 2, item.y - 3);
+
+    // Dialog count indicator
+    if (item.dialog && item.dialog.length > 0) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '8px monospace';
+        ctx.fillText(`${item.dialog.length} lines`, x + item.width + 3, item.y + 10);
+    }
+}
+
+function drawDataLog(item) {
+    const x = item.x - state.cameraX;
+    const w = item.width ?? 28;
+    const h = item.height ?? 28;
+    const color = COLORS.dataLog;
+
+    ctx.fillStyle = color + '44';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.fillRect(x, item.y, w, h);
+    ctx.strokeRect(x, item.y, w, h);
+
+    // Data log icon
+    ctx.fillStyle = color;
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('D', x + w / 2, item.y + h / 2 + 4);
+    ctx.textAlign = 'left';
+
+    // Log ID label
+    ctx.fillStyle = '#eef8ff';
+    ctx.font = '8px monospace';
+    ctx.fillText(item.logId || 'log', x + 2, item.y - 3);
+}
+
 function drawSelection() {
     if (!state.selected) return;
     const item = state.selected.item;
@@ -1345,7 +1575,24 @@ function draw() {
     }
 
     if (state.layerVisibility.bonusBlocks) {
-        state.level.bonusBlocks.forEach((item) => rectWorld(item, COLORS.bonusBlock, item.reward || 'bonus'));
+        state.level.bonusBlocks.forEach((item) => {
+            const isMulti = (item.hits ?? 1) > 1;
+            const color = isMulti ? COLORS.bonusBlockMulti : COLORS.bonusBlock;
+            const label = isMulti ? `${item.hits}x ${item.reward || 'bonus'}` : (item.reward || 'bonus');
+            drawBonusBlock(item, color, label);
+        });
+    }
+
+    if (state.layerVisibility.hazards && state.level.hazards) {
+        state.level.hazards.forEach((item) => drawHazard(item));
+    }
+
+    if (state.layerVisibility.npcs && state.level.npcs) {
+        state.level.npcs.forEach((item) => drawNPC(item));
+    }
+
+    if (state.layerVisibility.dataLogs && state.level.dataLogs) {
+        state.level.dataLogs.forEach((item) => drawDataLog(item));
     }
 
     if (state.layerVisibility.enemies) {
@@ -1433,6 +1680,27 @@ function exportCode() {
             delete b.used;
             delete b.bumpTimer;
             delete b.spawnRequest;
+            delete b.hitsLeft;
+        });
+    }
+    if (cleanLevel.dataLogs) {
+        cleanLevel.dataLogs.forEach(d => {
+            delete d.collected;
+        });
+    }
+    if (cleanLevel.hazards) {
+        cleanLevel.hazards.forEach(h => {
+            delete h._init;
+            delete h._active;
+            delete h._flickerTimer;
+            delete h._cycleTimer;
+            delete h._angle;
+            delete h._alertTimer;
+            delete h._suspiciousTimer;
+            delete h._state;
+            delete h._direction;
+            delete h._triggered;
+            delete h.disabled;
         });
     }
     if (cleanLevel.checkpoints) {
@@ -1467,6 +1735,9 @@ function importLevel(text) {
         checkpoints: parsed.checkpoints || [],
         shadowAreas: parsed.shadowAreas || [],
         keys: parsed.keys || [],
+        hazards: parsed.hazards || [],
+        npcs: parsed.npcs || [],
+        dataLogs: parsed.dataLogs || [],
         fx: parsed.fx || createEmptyLevel().fx,
     };
     state.selected = null;
@@ -1781,6 +2052,13 @@ const enemyTypeSelect = $('enemyTypeSelect');
 if (enemyTypeSelect) {
     enemyTypeSelect.addEventListener('change', () => {
         state.currentEnemyType = enemyTypeSelect.value;
+    });
+}
+
+const hazardTypeSelect = $('hazardTypeSelect');
+if (hazardTypeSelect) {
+    hazardTypeSelect.addEventListener('change', () => {
+        state.currentHazardType = hazardTypeSelect.value;
     });
 }
 

@@ -179,9 +179,13 @@ export class Player {
                     this.y = block.y + block.height;
                     this.velocityY = 120;
 
-                    // Multi-hit blocks: decrement hitsLeft, block is 'used' when hitsLeft reaches 0
-                    const maxHits = block.hits ?? 1;
-                    if (!block.hitsLeft) block.hitsLeft = maxHits;
+                    // Already depleted? Do nothing
+                    if (block.used) continue;
+
+                    // Multi-hit blocks: initialize hitsLeft on first hit
+                    if (block.hitsLeft === undefined) {
+                        block.hitsLeft = block.hits ?? 1;
+                    }
 
                     if (block.hitsLeft > 0) {
                         block.hitsLeft--;
@@ -203,9 +207,6 @@ export class Player {
                         if (block.hitsLeft <= 0) {
                             block.used = true;
                         }
-                    } else if (!block.used) {
-                        // Safety: mark used if hitsLeft somehow went below 0
-                        block.used = true;
                     }
                 }
             }
