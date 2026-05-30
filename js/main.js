@@ -812,22 +812,76 @@ function drawBonusBlocks() {
         const x = block.x - camera.x;
         const y = block.y - camera.y + bumpOffset;
 
+        // Multi-hit block state
+        const maxHits = block.hits ?? 1;
+        const hitsLeft = block.hitsLeft ?? maxHits;
+        const isMultiHit = maxHits > 1;
+        const isDepleted = block.used || hitsLeft <= 0;
+
         ctx.save();
 
-        ctx.shadowColor = block.used ? '#64748b' : '#facc15';
-        ctx.shadowBlur = block.used ? 6 : 18;
+        // Glow effect: stronger when more hits remain
+        if (!isDepleted) {
+            const glowIntensity = isMultiHit ? 12 + hitsLeft * 6 : 18;
+            ctx.shadowColor = isMultiHit ? '#fb923c' : '#facc15';
+            ctx.shadowBlur = glowIntensity;
+        } else {
+            ctx.shadowColor = '#64748b';
+            ctx.shadowBlur = 6;
+        }
 
-        ctx.fillStyle = block.used ? '#1e293b' : '#3b0764';
+        // Block body
+        if (isDepleted) {
+            ctx.fillStyle = '#1e293b';
+        } else if (isMultiHit) {
+            // Multi-hit blocks have a distinct orange tint
+            const orangeIntensity = Math.floor(100 + hitsLeft * 40);
+            ctx.fillStyle = `rgb(${orangeIntensity}, 30, 60)`;
+        } else {
+            ctx.fillStyle = '#3b0764';
+        }
         ctx.fillRect(x, y, block.width, block.height);
 
-        ctx.strokeStyle = block.used ? '#64748b' : '#facc15';
+        // Border
+        if (isDepleted) {
+            ctx.strokeStyle = '#64748b';
+        } else if (isMultiHit) {
+            ctx.strokeStyle = '#fb923c';
+        } else {
+            ctx.strokeStyle = '#facc15';
+        }
         ctx.lineWidth = 3;
         ctx.strokeRect(x, y, block.width, block.height);
 
-        ctx.fillStyle = block.used ? '#64748b' : '#facc15';
-        ctx.font = '900 24px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(block.used ? 'X' : '?', x + block.width / 2, y + 29);
+        // Block symbol
+        ctx.shadowBlur = 0;
+        if (isDepleted) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '900 24px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('X', x + block.width / 2, y + 29);
+        } else if (isMultiHit) {
+            // Multi-hit: show remaining hits count
+            ctx.fillStyle = '#fb923c';
+            ctx.font = '900 22px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${hitsLeft}`, x + block.width / 2, y + 29);
+            // Small indicator dots below number
+            const dotY = y + block.height - 8;
+            const dotSpacing = 8;
+            const startX = x + block.width / 2 - ((maxHits - 1) * dotSpacing) / 2;
+            for (let i = 0; i < maxHits; i++) {
+                ctx.fillStyle = i < hitsLeft ? '#fb923c' : '#4a2020';
+                ctx.beginPath();
+                ctx.arc(startX + i * dotSpacing, dotY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            ctx.fillStyle = '#facc15';
+            ctx.font = '900 24px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', x + block.width / 2, y + 29);
+        }
 
         ctx.restore();
     }

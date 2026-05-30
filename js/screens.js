@@ -13,37 +13,36 @@ import { awardXP } from './skillTree.js';
 const LEVEL_COMPLETE_UI = {
     panel: {
         width: 640,
-        height: 460,
-        y: 48,
+        height: 520,
+        y: 28,
         background: 'rgba(5, 5, 16, 0.95)',
         border: '#21e6ff',
         shadow: '#21e6ff',
     },
 
     title: {
-        y: 112,
+        y: 80,
         color: '#ff2bd6',
         font: '900 42px monospace',
         text: 'LEVEL COMPLETE',
     },
 
     subtitle: {
-        y: 154,
+        y: 118,
         color: '#ffffff',
         font: '900 21px monospace',
     },
 
     rows: {
-        startY: 205,
-        gap: 32,
-        bonusGap: 42,
+        startY: 160,
+        gap: 28,
+        bonusGap: 38,
         leftOffset: 230,
         valueOffset: 230,
         font: '900 18px monospace',
     },
 
     total: {
-        y: 460,
         height: 44,
         background: 'rgba(255, 255, 255, 0.12)',
         labelColor: '#ffffff',
@@ -52,7 +51,6 @@ const LEVEL_COMPLETE_UI = {
     },
 
     footer: {
-        y: 500,
         color: '#ffffff',
         subColor: '#94a3b8',
         font: '900 16px monospace',
@@ -560,6 +558,7 @@ export function drawLevelCompleteScreen() {
 
     const panelX = CONFIG.width / 2 - ui.panel.width / 2;
     const panelY = ui.panel.y;
+    const panelBottom = panelY + ui.panel.height;
 
     const rowLeft = CONFIG.width / 2 - ui.rows.leftOffset;
     const rowValueX = CONFIG.width / 2 + ui.rows.valueOffset;
@@ -587,15 +586,15 @@ export function drawLevelCompleteScreen() {
     ctx.textAlign = 'center';
     ctx.fillStyle = ui.title.color;
     ctx.font = ui.title.font;
-    ctx.fillText(ui.title.text, CONFIG.width / 2, ui.title.y);
+    ctx.fillText(ui.title.text, CONFIG.width / 2, panelY + ui.title.y);
 
     // Level name
     ctx.fillStyle = ui.subtitle.color;
     ctx.font = ui.subtitle.font;
-    ctx.fillText(levelStats?.levelName ?? level.name ?? 'STAGE CLEAR', CONFIG.width / 2, ui.subtitle.y);
+    ctx.fillText(levelStats?.levelName ?? level.name ?? 'STAGE CLEAR', CONFIG.width / 2, panelY + ui.subtitle.y);
 
-    // Stats
-    let y = ui.rows.startY;
+    // Stats rows (dynamic y tracking)
+    let y = panelY + ui.rows.startY;
 
     drawResultRow('TIME', timeText, '#21e6ff', rowLeft, rowValueX, y);
     y += ui.rows.gap;
@@ -609,7 +608,7 @@ export function drawLevelCompleteScreen() {
     drawResultRow('DEATHS', `${player.deathsThisLevel ?? 0}`, '#fb7185', rowLeft, rowValueX, y);
     y += ui.rows.bonusGap;
 
-    // Bonuses
+    // Bonus rows
     drawResultRow('TIME BONUS', `+${score.timeBonus}`, '#21e6ff', rowLeft, rowValueX, y);
     y += ui.rows.gap;
 
@@ -626,11 +625,10 @@ export function drawLevelCompleteScreen() {
     if (playstyle) {
         y += ui.rows.bonusGap;
 
-        // Playstyle badge
-        ctx.save();
         const badgeX = CONFIG.width / 2;
         const badgeY = y;
 
+        ctx.save();
         // Badge background
         ctx.fillStyle = 'rgba(5, 5, 16, 0.9)';
         ctx.fillRect(badgeX - 160, badgeY - 4, 320, 38);
@@ -659,35 +657,41 @@ export function drawLevelCompleteScreen() {
 
     // --- Data Logs Collected ---
     const logsInfo = getLoreCountInfo();
-    y += 46;
+    y += 44;
     drawResultRow('DATA LOGS', `${logsInfo.collected} / ${logsInfo.total}`, '#facc15', rowLeft, rowValueX, y);
 
-    // Total bar
+    // Total bar (positioned dynamically after all rows, inside panel)
+    y += 16;
     const totalX = panelX + 72;
-    const totalY = ui.total.y;
     const totalWidth = ui.panel.width - 144;
 
     ctx.fillStyle = ui.total.background;
-    ctx.fillRect(totalX, totalY - 30, totalWidth, ui.total.height);
+    ctx.fillRect(totalX, y, totalWidth, ui.total.height);
 
     ctx.fillStyle = ui.total.labelColor;
     ctx.font = ui.total.font;
     ctx.textAlign = 'left';
-    ctx.fillText('TOTAL', totalX + 18, totalY);
+    ctx.fillText('TOTAL', totalX + 18, y + 30);
 
     ctx.fillStyle = ui.total.valueColor;
     ctx.textAlign = 'right';
-    ctx.fillText(`${score.total}`, totalX + totalWidth - 18, totalY);
+    ctx.fillText(`${score.total}`, totalX + totalWidth - 18, y + 30);
 
-    // Footer
+    // Footer (positioned below panel, no overlap)
+    const footerY = panelBottom + 20;
+
     ctx.textAlign = 'center';
     ctx.fillStyle = ui.footer.color;
     ctx.font = ui.footer.font;
-    ctx.fillText(ui.footer.text, CONFIG.width / 2, ui.footer.y);
+    ctx.fillText(ui.footer.text, CONFIG.width / 2, footerY);
 
+    // Cumulative score (clearly labeled differently from level total)
     ctx.fillStyle = ui.footer.subColor;
     ctx.font = ui.footer.subFont;
-    ctx.fillText(`TOTAL SCORE: ${player.score ?? 0}`, CONFIG.width / 2, ui.footer.y + 26);
+    ctx.fillText(`CUMULATIVE SCORE: ${player.score ?? 0}`, CONFIG.width / 2, footerY + 22);
+
+    // Data logs mini-info (right-aligned)
+    ctx.fillText(`DATA LOGS: ${logsInfo.collected} / ${logsInfo.total}`, CONFIG.width / 2, footerY + 40);
 
     ctx.restore();
 }

@@ -167,6 +167,23 @@ export const level1 = {
             "width": 42,
             "height": 42,
             "reward": "gem"
+        },
+        {
+            "x": 1320,
+            "y": 120,
+            "width": 42,
+            "height": 42,
+            "reward": "gem",
+            "hits": 3
+        },
+        {
+            "x": 1500,
+            "y": 200,
+            "width": 42,
+            "height": 42,
+            "reward": "random",
+            "randomPool": ["gem", "energy"],
+            "hits": 2
         }
     ],
     "enemies": [

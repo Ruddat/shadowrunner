@@ -86,6 +86,28 @@ export const level3 = {
             bumpTimer: 0,
             reward: 'life',
         },
+        // Multi-hit gem block (3 hits)
+        {
+            x: 2000,
+            y: 160,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'gem',
+            hits: 3,
+        },
+        // Multi-hit energy block (2 hits)
+        {
+            x: 2600,
+            y: 200,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'energy',
+            hits: 2,
+        },
     ],
 
     checkpoints: [

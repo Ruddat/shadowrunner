@@ -154,6 +154,31 @@ export const level2 = {
             reward: 'weapon',
             weaponId: 'plasma',
         },
+
+        // Multi-hit gem block (3 hits = 3 gems!)
+        {
+            x: 1440,
+            y: 170,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'gem',
+            hits: 3,
+        },
+
+        // Multi-hit random block (2 hits)
+        {
+            x: 3000,
+            y: 280,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'random',
+            randomPool: ['gem', 'energy', 'gem'],
+            hits: 2,
+        },
     ],
 
     checkpoints: [

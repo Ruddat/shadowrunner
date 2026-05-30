@@ -72,6 +72,7 @@ export function initializeLevelState(level) {
             block.used = false;
             block.bumpTimer = 0;
             block.spawnRequest = null;
+            block.hitsLeft = block.hits ?? 1; // Multi-hit blocks reset
         }
     }
 }

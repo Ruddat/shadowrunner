@@ -166,7 +166,7 @@ export class Player {
         this.x += this.velocityX * dt;
         this.y += this.velocityY * dt;
 
-        // Bonus block head-bump
+        // Bonus block head-bump (hit from below)
         if (this.velocityY < 0 && level.bonusBlocks) {
             for (const block of level.bonusBlocks) {
                 const hitFromBelow =
@@ -179,8 +179,12 @@ export class Player {
                     this.y = block.y + block.height;
                     this.velocityY = 120;
 
-                    if (!block.used) {
-                        block.used = true;
+                    // Multi-hit blocks: decrement hitsLeft, block is 'used' when hitsLeft reaches 0
+                    const maxHits = block.hits ?? 1;
+                    if (!block.hitsLeft) block.hitsLeft = maxHits;
+
+                    if (block.hitsLeft > 0) {
+                        block.hitsLeft--;
                         block.bumpTimer = 0.18;
 
                         block.spawnRequest = {
@@ -195,6 +199,13 @@ export class Player {
                         if (state.camera) {
                             state.camera.shake(3, 0.08);
                         }
+
+                        if (block.hitsLeft <= 0) {
+                            block.used = true;
+                        }
+                    } else if (!block.used) {
+                        // Safety: mark used if hitsLeft somehow went below 0
+                        block.used = true;
                     }
                 }
             }
@@ -205,7 +216,29 @@ export class Player {
             this.x = CONFIG.worldWidth - this.width;
         }
 
+        // Resolve platform collision (regular platforms)
         resolvePlatformCollision(this, level.platforms);
+
+        // Resolve bonus block collision as walkable platforms (stand on top)
+        if (level.bonusBlocks) {
+            for (const block of level.bonusBlocks) {
+                if (!rectsOverlap(this, block)) continue;
+
+                const previousBottom = this.prevY + this.height;
+                const currentBottom = this.y + this.height;
+
+                // Can land on top of bonus blocks (same logic as regular platforms)
+                if (
+                    this.velocityY >= 0 &&
+                    previousBottom <= block.y + 2 &&
+                    currentBottom >= block.y
+                ) {
+                    this.y = block.y - this.height;
+                    this.velocityY = 0;
+                    this.onGround = true;
+                }
+            }
+        }
 
         if (this.y > CONFIG.height + 300) {
             this.energy = 0;
