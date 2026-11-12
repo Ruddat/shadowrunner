@@ -13,7 +13,8 @@ export function resolvePlatformCollision(player, platforms) {
     player.onGround = false;
 
     for (const platform of platforms) {
-        if (!rectsOverlap(player, platform)) continue;
+        // Swept vertical test: a fast fall can cross a whole thin platform in one frame.
+        if (player.x + player.width <= platform.x || player.x >= platform.x + platform.width) continue;
 
         const previousBottom = player.prevY + player.height;
         const currentBottom = player.y + player.height;

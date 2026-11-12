@@ -9,6 +9,7 @@ import { state } from './gameState.js';
 import { stopMusic, playMusic } from './audioManager.js';
 import { saveGame } from './saveSystem.js';
 import { awardXP } from './skillTree.js';
+import { LEVEL_COUNT } from './levels.js';
 
 const LEVEL_COMPLETE_UI = {
     panel: {
@@ -542,7 +543,22 @@ export function completeLevel({ bossDefeated = false } = {}) {
     bossProjectiles.length = 0;
     enemyProjectiles.length = 0;
 
-    // Auto-save on level completion
+    // Stop the timer at completion, including the final boss; menus do not count.
+    if (state.speedrunActive) {
+        const levelTime = (performance.now() - state.speedrunStartTime) / 1000;
+        const levelIndex = state.currentLevelIndex;
+        try {
+            const times = JSON.parse(localStorage.getItem('shadowrunner_speedrun') || '{}');
+            if (times[levelIndex] === undefined || levelTime < times[levelIndex]) {
+                times[levelIndex] = levelTime;
+                localStorage.setItem('shadowrunner_speedrun', JSON.stringify(times));
+            }
+        } catch (_) {}
+        state.speedrunLevelTimes.push({ level: levelIndex, time: levelTime });
+    }
+
+    // Save the completed marker so Continue advances instead of replaying rewards.
+    state.gameState = 'levelComplete';
     saveGame(state);
 
     stopMusic();
@@ -696,7 +712,8 @@ export function drawLevelCompleteScreen() {
     ctx.textAlign = 'center';
     ctx.fillStyle = ui.footer.color;
     ctx.font = ui.footer.font;
-    ctx.fillText(ui.footer.text, CONFIG.width / 2, footerY);
+    ctx.fillText(state.currentLevelIndex === LEVEL_COUNT - 1
+        ? 'MISSION COMPLETE - ENTER OR CLICK FOR CREDITS' : ui.footer.text, CONFIG.width / 2, footerY);
 
     ctx.fillStyle = ui.footer.subColor;
     ctx.font = ui.footer.subFont;

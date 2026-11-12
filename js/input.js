@@ -309,24 +309,11 @@ export function getGamepadMenuAction() {
     const stickLeft = leftStickX < -AXIS_DEADZONE;
     const stickRight = leftStickX > AXIS_DEADZONE;
 
-    if ((upPressed || stickUp) && !prevButtons.up) return 'up';
-    if ((downPressed || stickDown) && !prevButtons.down) return 'down';
-    if ((leftPressed || stickLeft) && !prevButtons.left) return 'left';
-    if ((rightPressed || stickRight) && !prevButtons.right) return 'right';
-
-    // A/Cross = confirm (edge)
     const confirmPressed = gp.buttons[0]?.pressed || false;
-    if (confirmPressed && !prevButtons.confirm) return 'confirm';
-
-    // Start = confirm too
     const startPressed = gp.buttons[9]?.pressed || false;
-    if (startPressed && !prevButtons.start) return 'confirm';
-
-    // B/Circle = back
     const backPressed = gp.buttons[1]?.pressed || false;
-    if (backPressed && !prevButtons.back) return 'back';
-
-    // Save state for next frame
+    const previous = prevButtons;
+    // Save state even when an action is returned.
     prevButtons = {
         up: upPressed || stickUp,
         down: downPressed || stickDown,
@@ -337,5 +324,27 @@ export function getGamepadMenuAction() {
         back: backPressed,
     };
 
+    if ((upPressed || stickUp) && !previous.up) return 'up';
+    if ((downPressed || stickDown) && !previous.down) return 'down';
+    if ((leftPressed || stickLeft) && !previous.left) return 'left';
+    if ((rightPressed || stickRight) && !previous.right) return 'right';
+
+    // A/Cross = confirm (edge)
+    if (confirmPressed && !previous.confirm) return 'confirm';
+
+    // Start = confirm too
+    if (startPressed && !previous.start) return 'confirm';
+
+    // B/Circle = back
+    if (backPressed && !previous.back) return 'back';
+
     return null;
 }
+
+window.addEventListener('blur', () => {
+    for (const action of Object.keys(keys)) {
+        keys[action] = false;
+        keyboardHeld[action] = false;
+    }
+    saveKeySnapshot();
+});

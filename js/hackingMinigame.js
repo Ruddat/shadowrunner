@@ -647,6 +647,12 @@ function deactivateNearbyEnemies(terminal) {
     }
 }
 
+function addHackedPlatform(level, platform) {
+    const base = level.basePlatforms ?? level.platforms;
+    base.push(platform);
+    if (level.platforms !== base) level.platforms.push(platform);
+}
+
 function openHackingDoor(terminal) {
     const level = state.currentLevel;
 
@@ -663,7 +669,7 @@ function openHackingDoor(terminal) {
         });
 
         // Add as a platform so player can walk through
-        level.platforms.push({
+        addHackedPlatform(level, {
             x: terminal.doorX,
             y: terminal.doorY,
             width: terminal.doorW || 200,
@@ -679,7 +685,7 @@ function revealSecretArea(terminal) {
     // Add secret platforms and a weapon upgrade
     if (terminal.secretPlatforms) {
         for (const sp of terminal.secretPlatforms) {
-            level.platforms.push(sp);
+            addHackedPlatform(level, sp);
         }
     }
 

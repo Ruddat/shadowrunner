@@ -1,3 +1,4 @@
+import { getWorldWidth } from './levelBounds.js';
 import { CONFIG } from './config.js';
 
 export class Camera {
@@ -13,14 +14,14 @@ export class Camera {
         this.offsetY = 0;
     }
 
-    follow(target) {
+    follow(target, level) {
         const targetX = target.x + target.width / 2 - CONFIG.width * 0.42;
 
         this.x += (targetX - this.x) * 0.08;
 
         if (this.x < 0) this.x = 0;
-        if (this.x > CONFIG.worldWidth - CONFIG.width) {
-            this.x = CONFIG.worldWidth - CONFIG.width;
+        if (this.x > getWorldWidth(level) - CONFIG.width) {
+            this.x = getWorldWidth(level) - CONFIG.width;
         }
     }
 

@@ -119,6 +119,7 @@ function updateSecurityCam(hazard, player, level, dt) {
     if (!hazard._init) {
         hazard._init = true;
         hazard._angle = hazard.startAngle ?? 0;
+        hazard._direction = 1;
         hazard._alertTimer = 0;
         hazard._suspiciousTimer = 0;
         hazard._state = 'patrol'; // patrol, suspicious, alert

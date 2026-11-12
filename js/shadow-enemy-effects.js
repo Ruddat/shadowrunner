@@ -16,7 +16,7 @@ export function drawShadowEnemyAuras(ctx, player, camera, level) {
     const time = Date.now();
 
     for (const enemy of level.enemies) {
-        if (!enemy.shadowOnly) continue;
+        if (!enemy.shadowOnly || enemy.active === false) continue;
 
         const screenX = enemy.x - camera.x;
         const screenY = enemy.y - camera.y;
