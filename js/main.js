@@ -193,6 +193,17 @@ function update(dt) {
 
     // Poll gamepads every frame
     pollGamepads();
+    const menuAction = getGamepadMenuAction();
+    if (!state.optionsOpen && !isShopOpen()) {
+        if (state.gameState === 'playing' && justPressed('pause')) {
+            togglePause();
+        } else if (menuAction && (state.gameState !== 'playing' || state.paused)) {
+            const code = menuAction === 'confirm' && state.gameState === 'intro' ? 'Space'
+                : ({ up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight',
+                    confirm: 'Enter', back: 'Escape' })[menuAction];
+            if (code) handleKeyDown({ code, repeat: false });
+        }
+    }
 
     // Hit-Lag: brief freeze when player is hit or enemies are killed
     if (player._hitLagTimer > 0) {
@@ -278,6 +289,11 @@ function update(dt) {
     }
     state.shopOpen = false;
 
+    if (state.gameState === 'levelComplete') {
+        updateParticles(dt);
+        return;
+    }
+
     player.update(dt, state.currentLevel);
 
     if (player.isGameOver) {
@@ -289,7 +305,7 @@ function update(dt) {
         player.shoot(state.projectiles);
     }
 
-    camera.follow(player);
+    camera.follow(player, state.currentLevel);
     camera.update(dt);
 
     // Neon-Sync: update music analysis every frame
@@ -301,8 +317,9 @@ function update(dt) {
 
     updateLevelFx(dt, state.currentLevel);
     updateGems();
-    updateExit();
     updateKeyPortalSystem(player, state.currentLevel);
+    updateExit();
+    updateCheckpoints();
     updateStealth(dt);
     updateEnemies(dt);
     updateEnemyProjectiles(dt);
@@ -352,7 +369,7 @@ function drawBackground() {
     ctx.fillStyle = '#060612';
     ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
 
-    if (!levelBackground.complete) return;
+    if (!levelBackground.complete || !levelBackground.naturalWidth) return;
 
     const bgWidth = levelBackground.width;
     const bgHeight = levelBackground.height;
@@ -1025,7 +1042,6 @@ function render() {
         }
         // Shop overlay on top of level complete
         if (isShopOpen()) {
-            updateShop(0); // ensure state is current
             drawShop(ctx);
         }
         return;
@@ -1141,6 +1157,7 @@ function loop(timestamp) {
     state._renderDt = dt;
 
     update(dt);
+    saveKeySnapshot();
     render();
 
     requestAnimationFrame(loop);
@@ -1148,7 +1165,7 @@ function loop(timestamp) {
 
 // --- Event Handlers ---
 
-window.addEventListener('keydown', (e) => {
+function handleKeyDown(e) {
     // Fullscreen API requires a user gesture context (keydown/click).
     // The options menu processes input in the rAF loop, where requestFullscreen
     // is NOT allowed. So we intercept fullscreen toggles here in the keydown handler.
@@ -1177,6 +1194,8 @@ window.addEventListener('keydown', (e) => {
         }
     }
 
+    if (e.repeat) return;
+
     // Options menu handles its own keyboard input
     if (state.optionsOpen) return;
 
@@ -1189,10 +1208,7 @@ window.addEventListener('keydown', (e) => {
     if (state.gameState === 'title') {
         const action = handleTitleKey(e.code);
 
-        // Also handle gamepad menu navigation
-        const gpAction = getGamepadMenuAction();
-
-        const finalAction = action || gpAction;
+        const finalAction = action;
 
         if (finalAction === 'CREDITS') {
             initCreditsScreen();
@@ -1232,10 +1248,8 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (state.gameState === 'levelComplete' && e.code === 'Enter') {
-        // If shop is open, close it first
-        if (isShopOpen()) {
-            closeShop();
-        }
+        // Enter purchases items while the shop is open.
+        if (isShopOpen()) return;
         loadNextLevel(); // handles stopping old music + starting new
         if (state.gameState === 'credits') {
             playMusic('credits');
@@ -1315,9 +1329,11 @@ window.addEventListener('keydown', (e) => {
             return;
         }
     }
-});
+}
+window.addEventListener('keydown', handleKeyDown);
 
 canvas.addEventListener('click', () => {
+    if (state.optionsOpen) return;
     if (state.gameState === 'intro') {
         state.gameState = 'title';
         playMusic('title');
@@ -1343,12 +1359,19 @@ canvas.addEventListener('click', () => {
             state.gameState = 'credits';
         }
 
+        if (action === 'OPTIONS') {
+            initOptionsMenu();
+            state.optionsPreviousState = 'title';
+            state.optionsOpen = true;
+        }
+
         if (action === 'EXIT') {
             state.gameState = 'intro';
         }
     }
 
     if (state.gameState === 'levelComplete') {
+        if (isShopOpen()) return;
         loadNextLevel(); // handles stopping old music + starting new
         if (state.gameState === 'credits') {
             playMusic('credits');
@@ -1375,48 +1398,53 @@ function continueFromSave() {
         state.currentLevel = getLevel(saveData.levelIndex);
         state.levelBackground.src = state.currentLevel.background;
 
-        // Restore player state
-        state.player.lives = saveData.lives;
-        state.player.score = saveData.score;
-        state.player.weaponId = saveData.weaponId;
-        state.player.weaponLevel = saveData.weaponLevel;
-        state.player.gems = saveData.gems;
-        state.player.keys = saveData.keys ?? 0;
-        state.player.x = saveData.checkpointX;
-        state.player.y = saveData.checkpointY;
-        state.player.prevY = saveData.checkpointY;
-        state.player.velocityX = 0;
-        state.player.velocityY = 0;
-        state.player.energy = 100;
-        state.player.invincibleTimer = 0;
-        state.player.shootCooldown = 0;
-        state.player.shadowShift = false;
-        state.player.shadowEnergy = 100;
-        state.player.shadowDashTimer = 0;
-        state.player.shadowDashCooldown = 0;
-        state.player.wallSliding = false;
-        state.player.wallSide = null;
-        state.player.wallJumpCooldown = 0;
-        state.player.resetCombo();
-
+        initializeLevelState(state.currentLevel);
+        if (saveData.level) {
+            // JSON snapshots omit sprite animation instances; updateEnemies rebuilds them.
+            state.currentLevel = saveData.level;
+            state.currentLevel.platforms = state.currentLevel.basePlatforms ?? state.currentLevel.platforms;
+            state.currentLevel.basePlatforms = [...state.currentLevel.platforms];
+            initStealthForLevel(state.currentLevel);
+        }
+        const player = state.player;
+        player.lives = saveData.lives;
+        player.score = saveData.score;
+        player.weaponId = saveData.weaponId;
+        player.weaponLevel = saveData.weaponLevel;
+        player.gems = saveData.gems;
+        player.keys = saveData.keys ?? 0;
+        player.x = saveData.x ?? state.currentLevel.spawn.x;
+        player.y = saveData.y ?? state.currentLevel.spawn.y;
+        player.prevY = player.y;
+        player.energy = saveData.energy ?? 100;
+        player.deathsThisLevel = saveData.deathsThisLevel ?? 0;
+        player.shootCooldown = 0;
+        player.shadowShift = saveData.shadowShift === true;
+        player.shadowEnergy = Math.max(0, Math.min(100, saveData.shadowEnergy ?? 100));
+        for (const buff of ['_magnetTimer', '_shieldTimer', '_speedBoostTimer', '_doubleJumpCharges']) {
+            const value = saveData.buffs?.[buff];
+            player[buff] = Number.isFinite(value) && value >= 0 ? value : 0;
+        }
+        player.syncShadowPlatforms(state.currentLevel);
+        state.checkpoint = saveData.checkpoint ?? null;
         state.camera.x = 0;
         state.camera.y = 0;
         initLevelFx();
         state.projectiles.length = 0;
         state.bossProjectiles.length = 0;
         state.enemyProjectiles.length = 0;
-
-        // Set checkpoint from save so respawn works correctly
-        state.checkpoint = { x: saveData.checkpointX, y: saveData.checkpointY };
-        state.checkpointGems = saveData.gems;
-        state.checkpointKeys = saveData.keys ?? 0;
-
-        initializeLevelState(state.currentLevel);
         state.levelStats = createLevelStats(state.currentLevel);
+        state.levelStats.startedAt -= saveData.elapsedMs ?? 0;
         state.gameOverStats = null;
-        state.player.levelComplete = false;
-        state.player.isGameOver = false;
-        state.player.deathsThisLevel = 0;
+        state.speedrunStartTime = performance.now() - (saveData.elapsedMs ?? 0);
+        state.speedrunActive = true;
+        state.speedrunLevelTimes = [];
+        if (saveData.completed) {
+            loadNextLevel();
+            state.gameState = state.gameState === 'credits' ? 'credits' : 'playing';
+            if (state.gameState === 'credits') playMusic('credits');
+            return;
+        }
 
         playMusic(state.currentLevel.music ?? 'level1');
         state.gameState = 'playing';
@@ -1496,6 +1524,22 @@ function drawPauseOverlay() {
 
 let checkpointFlashTimer = 0;
 
+function updateCheckpoints() {
+    const { currentLevel: level, player } = state;
+    for (const [id, cp] of (level.checkpoints ?? []).entries()) {
+        if (cp.activated || !rectsOverlap(player, cp)) continue;
+        cp.activated = true;
+        state.checkpoint = { x: player.x, y: player.y, id };
+        state.checkpointGems = player.gems;
+        state.checkpointKeys = player.keys ?? 0;
+        saveGame(state);
+        showCenterMessage('CHECKPOINT', 0.9);
+        playSound('itemPickup');
+        checkpointFlashTimer = 0.4;
+        spawnParticles(cp.x + cp.width / 2, cp.y + cp.height / 2, 20, '#22c55e');
+    }
+}
+
 function drawCheckpoints() {
     const { currentLevel: level, camera, player } = state;
     if (!level.checkpoints) return;
@@ -1509,7 +1553,7 @@ function drawCheckpoints() {
         // Skip if off-screen
         if (x + cp.width < -20 || x > CONFIG.width + 20) continue;
 
-        const isActive = state.checkpoint && state.checkpoint.x === cp.x && state.checkpoint.y === cp.y;
+        const isActive = state.checkpoint?.id === level.checkpoints.indexOf(cp);
 
         ctx.save();
 
@@ -1587,21 +1631,6 @@ function drawCheckpoints() {
         }
 
         ctx.restore();
-
-        // --- Checkpoint activation ---
-        if (!cp.activated && rectsOverlap(player, cp)) {
-            cp.activated = true;
-            state.checkpoint = { x: cp.x, y: cp.y - player.height - 4 };
-            state.checkpointGems = player.gems;
-            state.checkpointKeys = player.keys ?? 0;
-            saveGame(state);
-            showCenterMessage('CHECKPOINT', 0.9);
-            playSound('itemPickup');
-            checkpointFlashTimer = 0.4;
-
-            // Burst particles on activation
-            spawnParticles(cp.x + cp.width / 2, cp.y + cp.height / 2, 20, '#22c55e');
-        }
     }
 
     // --- Checkpoint activation flash effect ---

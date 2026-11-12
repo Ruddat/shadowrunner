@@ -25,7 +25,7 @@ Hinweis: Browser starten Audio meist erst nach einer Benutzeraktion. Ein Klick o
 
 - HTML5-Canvas-Spiel mit 960x540 Aufloesung (16:9)
 - Modulare ES6-JavaScript-Struktur (30+ Module)
-- 9 Level: 4 hand-crafted, 1 prozedural generiert, 3 weitere hand-crafted, 2 Boss-Level
+- 10 Level: 7 handgebaute Abschnitte, 1 prozeduraler Abschnitt und 2 Boss-Arenen
 - Intro-, Title-, Credits-, Level-Complete- und Game-Over-Screen
 - Kamera-System mit Shake-Effekten
 - Plattforming mit Gravitation und Kollisionen
@@ -421,7 +421,7 @@ shadowrunner/
 │   ├── camera.js           # Kamera-System mit Shake
 │   ├── collision.js        # Kollisionserkennung, Raycast
 │   ├── input.js            # Keyboard + Gamepad Input mit Custom Bindings
-│   ├── levels.js           # Level-Registry (9 Level, 1 prozedural)
+│   ├── levels.js           # Level-Registry (10 Level, 1 prozedural)
 │   ├── level1.js           # Level 1
 │   ├── level2.js           # Level 2
 │   ├── level3.js           # Level 3
@@ -430,7 +430,8 @@ shadowrunner/
 │   ├── level6.js           # Level 6
 │   ├── level7.js           # Level 7
 │   ├── level8.js           # Level 8
-│   ├── level9Boss.js       # Level 9 - Zweiter Boss
+│   ├── level9Boss.js       # Level 10 - Finaler Boss
+│   ├── level10.js          # Level 9 - Blackout Nexus
 │   ├── levelManager.js     # Level-Zustaende, Transitions, Pickups
 │   ├── level-editor.js     # Level-Editor
 │   ├── enemySystem.js      # Gegner-KI, Projektile, Schild-Logik
@@ -505,7 +506,7 @@ ShadowRunner ist ein aktiver Prototyp. Viele Systeme sind bereits spielbar, aber
 - Options-Menue (Volume, Fullscreen, Gamepad, Speedrun)
 - Gamepad-Support mit Custom Bindings
 - Neon-Sync (Musik-gesteuerte Visualeffekte)
-- 9 Level (inkl. 1 prozedural generiert)
+- 10 Level (inkl. 1 prozedural generiert)
 - Sprite-Animationen (Player + Gegner)
 - Level-Editor mit allen Features
 - Partikel-System
@@ -618,3 +619,69 @@ Waehrend `playing` koennen folgende Overlay-Zustaende aktiv sein:
 ## Lizenz
 
 Noch nicht final festgelegt.
+
+
+## Kampagne und Fehlerpruefung (November 2026)
+
+| Abschnitt | Name | Datei |
+|---|---|---|
+| 1 | Neon Rooftops | `js/level1.js` |
+| 2 | Cyber Alley | `js/level2.js` |
+| 3 | Neon Factory | `js/level3.js` |
+| 4 | Factory Guardian (Boss) | `js/level4Boss.js` |
+| 5 | Zufallssektor | `js/level5Procedural.js` |
+| 6 | Data Storm | `js/level6.js` |
+| 7 | Chrome Void | `js/level7.js` |
+| 8 | Cipher Deep | `js/level8.js` |
+| 9 | Blackout Nexus | `js/level10.js` |
+| 10 | Overlord Core (Endboss) | `js/level9Boss.js` |
+
+Die Reihenfolge steht ausschliesslich in `js/levels.js`; Dateinamen bleiben aus
+Kompatibilitaetsgruenden erhalten. Jede Abfrage liefert eine neue Levelinstanz.
+Blackout Nexus hat einen eigenen Plattformaufbau, drei Zugangsschluessel,
+getaktete Laser, zwei Checkpoints und einen Shop vor dem Endboss. Vorhandene
+Grafik und Musik werden wiederverwendet.
+
+### Behobene Probleme
+
+- Elf Eintraege mit doppeltem Cipher Deep und nicht registrierter Musik.
+- Boss, Schluessel, Schilde, Gegnerpositionen und Portale blieben beim Wiederholen veraendert.
+- Checkpoints wurden beim Zeichnen aktiviert, auch waehrend Pause.
+- Schluesselzaehler wurden beim Tod zurueckgesetzt, obwohl die Schluessel eingesammelt blieben.
+- Continue stellte Gegenstaende und Zufallsgeometrie nicht zusammen mit dem Spieler wieder her.
+- Abgeschlossene Spielstaende konnten denselben Abschnitt und seine Belohnung wiederholen.
+- Die Spiellogik lief im Level-Complete-Bildschirm weiter.
+- Zufallsportale lagen nicht immer auf der verschobenen Zielplattform; feste Weltgrenzen
+  konnten laengere Zufallslevel abschneiden. Sprungabstaende beruecksichtigen jetzt auch Hoehenunterschiede.
+- Schnelle Stuerze konnten duenne Plattformen ueberspringen.
+- Coyote Time, Sprungpuffer und Doppelsprung werteten gehaltene Tasten falsch aus.
+- Gamepad-Menues liefen nur bei Tastaturereignissen; gehaltene Richtungen hatten keine korrekte Flankenerkennung.
+- Sicherheitskameras hatten keine initiale Drehrichtung. Besiegte Shadow-Gegner wurden weiter gezeichnet.
+- Neue Musik wurde im stummen Modus nicht ausgewaehlt; Lautstaerke-Speichern ueberschrieb weitere Optionen.
+- Gehackte Zusatzplattformen konnten beim Shadow-Wechsel verschwinden.
+- Die Abschlusszeit des Endbosses wurde nicht gespeichert; der Abspann wurde nicht neu initialisiert.
+
+Neue Spielstaende (Version 3) speichern Levelzustand, Position, Zaehler, Zeit,
+Tode, Shadow-Zustand und aktive Buffs zusammen. Version 2 wird anhand der vorherigen
+elf Eintraege auf die neue Reihenfolge abgebildet; der betroffene Abschnitt startet
+von vorn, weil diese Spielstaende noch keinen Weltzustand enthalten.
+
+### Automatisierte Tests
+
+Node.js ab Version 22, keine zusaetzlichen Pakete erforderlich:
+
+```bash
+npm test
+```
+
+Die Tests importieren die echten Spielmodule mit kleinen DOM/Canvas/Audio-Stubs.
+Sie pruefen die zehn Level, Update-/Render-Aufrufe, Neustarts, Checkpoints,
+Speichern/Fortsetzen, Eingabe, Kollisionen und das Finale. 500 feste Zufallsseeds
+werden auf Portalposition, Weltgrenzen und eine verbundene Plattformroute mit
+den normalen Sprungwerten geprueft. Das ist eine geometrische Pruefung ohne Gegner,
+kein vollstaendiger automatischer Spieldurchlauf.
+
+Noch manuell im Browser pruefen: Schwierigkeit und Spielgefuehl aller Abschnitte,
+Grafik/Sprite-Ausrichtung, Soundwiedergabe, echtes Gamepad und Vollbild. Die Tests
+ersetzen diesen Durchlauf nicht. Der Entwicklungsmodus fuer Waffenwechsel
+(`CONFIG.debugWeaponSwitch`) bleibt fuer diese Tests verfuegbar.

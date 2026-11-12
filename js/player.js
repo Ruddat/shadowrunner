@@ -1,5 +1,6 @@
+import { getWorldWidth } from './levelBounds.js';
 import { CONFIG } from './config.js';
-import { keys } from './input.js';
+import { keys, justPressed } from './input.js';
 import { resolvePlatformCollision, detectWallContact } from './collision.js';
 import { Projectile } from './projectile.js';
 import { getWeaponStats, isValidWeaponId, WEAPON_IDS } from './weapons.js';
@@ -138,7 +139,7 @@ export class Player {
 
         // --- Coyote Time & Jump Buffering ---
         // Update coyote timer: starts when player leaves ground without jumping
-        if (this.wasOnGround && !this.onGround) {
+        if (this.onGround) {
             // Player just left ground (walked off edge, didn't jump)
             this.coyoteTimer = this.coyoteTime;
         }
@@ -147,7 +148,7 @@ export class Player {
         }
 
         // Update jump buffer: starts when jump is pressed while airborne
-        if (keys.jump && !this.onGround) {
+        if (justPressed('jump') && !this.onGround) {
             this.jumpBufferTimer = this.jumpBufferTime;
         }
         if (this.jumpBufferTimer > 0) {
@@ -156,7 +157,7 @@ export class Player {
 
         // --- Jump (with Coyote Time support) ---
         const canJump = this.onGround || this.coyoteTimer > 0;
-        if (keys.jump && canJump) {
+        if (justPressed('jump') && canJump) {
             this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 1.06 : -CONFIG.jumpForce;
             this.onGround = false;
             this.coyoteTimer = 0; // consume coyote time
@@ -165,7 +166,7 @@ export class Player {
             // Squash: stretch vertically on jump
             this.targetScaleX = 0.75;
             this.targetScaleY = 1.3;
-        } else if (keys.jump && !this.onGround && this._doubleJumpAvailable) {
+        } else if (justPressed('jump') && !this.onGround && this._doubleJumpAvailable) {
             // Double Jump from Shop
             if (tryDoubleJump(this)) {
                 this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 0.9 : -CONFIG.jumpForce * 0.85;
@@ -276,8 +277,8 @@ export class Player {
         }
 
         if (this.x < 0) this.x = 0;
-        if (this.x > CONFIG.worldWidth - this.width) {
-            this.x = CONFIG.worldWidth - this.width;
+        if (this.x > getWorldWidth(level) - this.width) {
+            this.x = getWorldWidth(level) - this.width;
         }
 
         // Resolve platform collision (regular platforms)
@@ -389,7 +390,7 @@ export class Player {
         }
 
         // Wall-Jump: press jump while wall-sliding
-        if (this.wallSliding && keys.jump) {
+        if (this.wallSliding && justPressed('jump')) {
             // Push away from wall
             const jumpDir = this.wallSide === 'left' ? 1 : -1;
             this.velocityX = jumpDir * CONFIG.wallJumpForceX;
@@ -622,7 +623,7 @@ export class Player {
     }
 
     hit(level, damage = 25) {
-        if (this.isGameOver) return;
+        if (this.isGameOver || this.levelComplete) return;
         if (this.invincibleTimer > 0) return;
 
         // Apply shop shield damage reduction + skill: Phase Walk extra reduction
@@ -762,13 +763,17 @@ export class Player {
         if (state.checkpoint) {
             this.x = state.checkpoint.x;
             this.y = state.checkpoint.y;
-            // Restore gems and keys to checkpoint snapshot
-            this.gems = state.checkpointGems;
-            this.keys = state.checkpointKeys;
+            // Pickups remain collected after death, so keep their counters too.
         } else {
             this.x = level.spawn.x;
             this.y = level.spawn.y;
         }
+        this.prevY = this.y;
+        this.onGround = false;
+        this.wasOnGround = false;
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this._wallJumpTimer = 0;
         this.velocityX = 0;
         this.velocityY = 0;
         this.shadowShift = false;

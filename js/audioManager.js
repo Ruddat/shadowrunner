@@ -42,7 +42,6 @@ export function registerSound(name, src) {
 }
 
 export function playMusic(name) {
-    if (muted) return;
     if (!tracks[name]) return;
 
     if (currentMusic && currentMusic !== tracks[name]) {
@@ -52,6 +51,7 @@ export function playMusic(name) {
 
     currentMusic = tracks[name];
     currentMusicName = name;
+    currentMusic.muted = muted;
     currentMusic.volume = masterVolume * musicVolume;
 
     resumeNeonSync();

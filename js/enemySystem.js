@@ -70,8 +70,8 @@ export function updateEnemies(dt) {
         // Update sprite animation for sprite-based enemies
         updateEnemyAnim(enemy, type, dt);
 
-        // Contact damage (all types)
-        if (rectsOverlap(player, enemy)) {
+        // Shadow enemies cannot damage players outside their plane.
+        if (enemy.active !== false && (!enemy.shadowOnly || player.shadowShift) && rectsOverlap(player, enemy)) {
             player.hit(level, enemy.contactDamage ?? CONFIG.defaultContactDamage);
             spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 22, '#facc15');
             camera.shake(12, 0.25);
@@ -530,7 +530,7 @@ function updateNinja(enemy, dt) {
 function updateEnemyShooter(enemy, dt) {
     const { player, enemyProjectiles } = state;
 
-    if (!enemy.canShoot) return;
+    if (!enemy.canShoot || (enemy.shadowOnly && !player.shadowShift)) return;
 
     // Stealth: enemies only shoot when alert (can see the player)
     if (!isEnemyAlert(enemy)) return;
@@ -589,6 +589,7 @@ function shootEnemyProjectile(enemy) {
         color: enemy.projectileColor ?? '#ff003c',
         glow: enemy.projectileGlow ?? '#ff003c',
         active: true,
+        shadowOnly: enemy.shadowOnly === true,
     });
 
     spawnParticles(enemyCenterX, enemyCenterY, 8, enemy.projectileColor ?? '#ff003c');
@@ -615,7 +616,7 @@ export function updateEnemyProjectiles(dt) {
             continue;
         }
 
-        if (rectsOverlap(player, shot)) {
+        if ((!shot.shadowOnly || player.shadowShift) && rectsOverlap(player, shot)) {
             shot.active = false;
             player.hit(level, shot.damage ?? 20);
 

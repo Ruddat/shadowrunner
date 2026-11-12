@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 /**
  * level5Procedural.js - Procedural Level Generator
  * Creates a unique, playable level every time after the boss fight.
@@ -49,10 +51,7 @@ const LEVEL_NAMES = [
     'Dark Protocol',
     'Neon Abyss',
     'Shadow Grid',
-    'Data Storm',
-    'Chrome Void',
     'Pixel Wasteland',
-    'Cipher Deep',
 ];
 
 // --- Main Generator ---
@@ -75,8 +74,8 @@ export function generateProceduralLevel(seed) {
     const bonusBlocks = generateBonusBlocks(rng, platforms);
     const keys = generateKeys(rng, platforms);
 
-    const exitX = LEVEL_WIDTH - 120;
     const lastPlatform = platforms[platforms.length - 1];
+    const exitX = lastPlatform.x + lastPlatform.width - 120;
 
     return {
         name,
@@ -146,7 +145,7 @@ function generatePlatforms(rng) {
 
     // Final exit platform - always solid
     platforms.push({
-        x: LEVEL_WIDTH - 280,
+        x: Math.max(LEVEL_WIDTH - 280, cursorX + 60),
         y: GROUND_Y,
         width: 280,
         height: 40,
@@ -176,11 +175,6 @@ function clampPlatformReachability(platforms) {
         const vDiff = (prev.y - PLAYER_HEIGHT) - (curr.y - PLAYER_HEIGHT);
         // vDiff > 0 means curr is higher (player needs to jump up)
 
-        // If horizontal gap is too large, pull the platform closer
-        if (hGap > MAX_JUMP_DISTANCE) {
-            curr.x = prev.x + prev.width + MAX_JUMP_DISTANCE - 10;
-        }
-
         // If vertical climb is too high for the jump, lower the platform
         // (make curr.y larger = lower on screen = easier to reach)
         if (vDiff > MAX_JUMP_HEIGHT) {
@@ -188,6 +182,12 @@ function clampPlatformReachability(platforms) {
             // Don't push below ground
             curr.y = Math.min(curr.y, GROUND_Y);
         }
+
+        const rise = prev.y - curr.y;
+        const flightTime = (CONFIG.jumpForce + Math.sqrt(Math.max(0,
+            CONFIG.jumpForce ** 2 - 2 * CONFIG.gravity * rise))) / CONFIG.gravity;
+        const safeGap = Math.min(MAX_JUMP_DISTANCE, CONFIG.moveSpeed * flightTime - 20);
+        if (hGap > safeGap) curr.x = prev.x + prev.width + safeGap;
 
         // Safety: never go above y=100 (too close to ceiling)
         curr.y = Math.max(curr.y, 100);

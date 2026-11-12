@@ -1,3 +1,4 @@
+import { getWorldWidth } from './levelBounds.js';
 /**
  * bossSystem.js - All boss logic extracted from main.js
  * Imports state from gameState.js and destructure what's needed.
@@ -46,7 +47,7 @@ export function updateBoss(dt) {
 
     if (boss.shootTimer <= 0) {
         shootBossPattern(boss, endPressureConfig, bossProjectiles);
-        boss.shootTimer = phaseConfig.shootDelay ?? 1.2;
+        boss.shootTimer = endPressureConfig.shootDelay ?? 1.2;
     }
 
     if (rectsOverlap(player, boss)) {
@@ -108,7 +109,7 @@ function getBossEndPressureConfig(boss, phaseConfig) {
 
     if (!exit || exit.locked === false) return phaseConfig;
 
-    const playerNearEnd = player.x > (boss.endPressureX ?? CONFIG.worldWidth - 520);
+    const playerNearEnd = player.x > (boss.endPressureX ?? getWorldWidth(level) - 520);
 
     if (!playerNearEnd) return phaseConfig;
 

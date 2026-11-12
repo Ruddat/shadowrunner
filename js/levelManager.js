@@ -24,57 +24,60 @@ import { damageBossInRadius } from './bossSystem.js';
 import { isShieldBlocking, damageShield } from './enemySystem.js';
 import { initLevelFx } from './levelFx.js';
 import { getLevel, LEVEL_COUNT, regenerateProceduralLevel } from './levels.js';
-import { deleteSave } from './saveSystem.js';
+import { deleteSave, saveGame } from './saveSystem.js';
+import { initCreditsScreen } from './creditsScreen.js';
 import { resetShopPurchases } from './shopSystem.js';
 import { initStealthForLevel } from './stealthSystem.js';
 import { awardXP, fullResetSkills } from './skillTree.js';
 
+function clearPlayerBuffs(player) {
+    player._magnetTimer = 0;
+    player._shieldTimer = 0;
+    player._speedBoostTimer = 0;
+    player._doubleJumpCharges = 0;
+    player._doubleJumpAvailable = true;
+}
+
 export function initializeLevelState(level) {
+    // Every entry/retry starts with fresh level data from getLevel().
     const { player } = state;
-
     player.deathsThisLevel = 0;
-
-    // Initialize stealth system for this level
+    state.checkpoint = null;
+    player.respawn(level);
+    player.prevY = player.y;
+    player.onGround = false;
+    player.wasOnGround = false;
+    player.coyoteTimer = 0;
+    player.jumpBufferTimer = 0;
+    player._wallJumpTimer = 0;
+    player._hitLagTimer = 0;
+    player.levelComplete = false;
+    player.isGameOver = false;
+    player.invincibleTimer = 0;
+    state.checkpointGems = 0;
+    state.checkpointKeys = 0;
+    state.pendingLevelComplete = null;
+    state.paused = false;
+    state.pausePreviousState = null;
+    state._hitLag = 0;
+    state.previousAlertState = null;
+    state.centerMessage = '';
+    state.messageTimer = 0;
+    floatingItems.length = 0;
     initStealthForLevel(level);
-
-    if (level.enemies) {
-        for (const enemy of level.enemies) {
-            enemy.maxHealth = enemy.maxHealth ?? enemy.health ?? 1;
-            enemy.health = enemy.maxHealth;
-            enemy.active = true;
-
-            if (enemy.canShoot) {
-                enemy.shootTimer = enemy.shootDelay ?? 1.2;
-            }
-
-            // Reset gravity state so enemies re-initialize on level start
-            enemy._gravityInit = undefined;
-            enemy.velocityY = undefined;
-            enemy.onGround = undefined;
-            enemy.prevY = undefined;
-        }
+    for (const enemy of level.enemies ?? []) {
+        enemy.maxHealth = enemy.maxHealth ?? enemy.health ?? 1;
+        enemy.health = enemy.maxHealth;
+        enemy.active = true;
+        if (enemy.canShoot) enemy.shootTimer = enemy.shootDelay ?? 1.2;
     }
-
     if (level.boss) {
         level.boss.maxHealth = level.boss.maxHealth ?? level.boss.health ?? 1;
         level.boss.health = level.boss.maxHealth;
-        level.boss.active = level.boss.active ?? true;
+        level.boss.active = true;
     }
-
-    if (level.gems) {
-        for (const gem of level.gems) {
-            gem.collected = false;
-        }
-    }
-
-    if (level.bonusBlocks) {
-        for (const block of level.bonusBlocks) {
-            block.used = false;
-            block.bumpTimer = 0;
-            block.spawnRequest = null;
-            block.hitsLeft = block.hits ?? 1; // Multi-hit blocks reset
-            block._hitCooldown = 0; // Reset hit cooldown
-        }
+    for (const block of level.bonusBlocks ?? []) {
+        block.hitsLeft = block.hits ?? 1;
     }
 }
 
@@ -85,6 +88,8 @@ export function loadNextLevel() {
 
     // Detect game completion after all levels
     if (state.currentLevelIndex >= LEVEL_COUNT) {
+        initCreditsScreen();
+        state.speedrunActive = false;
         state.gameState = 'credits';
         deleteSave(); // Clear save on game completion
         return;
@@ -128,24 +133,9 @@ export function loadNextLevel() {
     player.deathsThisLevel = 0;
     state.levelStats = createLevelStats(state.currentLevel);
     resetShopPurchases();
-
-    // Save speedrun best time for previous level
-    if (state.speedrunActive) {
-        const levelTime = (performance.now() - state.speedrunStartTime) / 1000;
-        const levelIdx = state.currentLevelIndex - 1;
-        try {
-            const raw = localStorage.getItem('shadowrunner_speedrun');
-            const times = raw ? JSON.parse(raw) : {};
-            const currentBest = times[levelIdx];
-            if (currentBest === undefined || levelTime < currentBest) {
-                times[levelIdx] = levelTime;
-                localStorage.setItem('shadowrunner_speedrun', JSON.stringify(times));
-            }
-        } catch (_) {}
-        state.speedrunLevelTimes.push({ level: levelIdx, time: levelTime });
-        // Reset timer for next level
-        state.speedrunStartTime = performance.now();
-    }
+    state.gameState = 'playing';
+    state.speedrunStartTime = performance.now();
+    saveGame(state);
 }
 
 /**
@@ -154,6 +144,10 @@ export function loadNextLevel() {
  */
 export function startNewGame() {
     const { player, camera, projectiles, bossProjectiles, enemyProjectiles } = state;
+
+    deleteSave();
+    clearPlayerBuffs(player);
+    resetShopPurchases();
 
     // Generate a fresh procedural level for this playthrough
     regenerateProceduralLevel();
@@ -219,10 +213,14 @@ export function startNewGame() {
 
     // Reset skill tree for new game
     fullResetSkills();
+    saveGame(state);
 }
 
 export function retryCurrentLevel() {
-    const { currentLevel: level, player, camera, projectiles, bossProjectiles, enemyProjectiles } = state;
+    const { player, camera, projectiles, bossProjectiles, enemyProjectiles } = state;
+    clearPlayerBuffs(player);
+    const level = getLevel(state.currentLevelIndex);
+    state.currentLevel = level;
 
     stopMusic();
 
@@ -258,8 +256,12 @@ export function retryCurrentLevel() {
     camera.x = 0;
     camera.y = 0;
 
+    resetShopPurchases();
+    state.speedrunStartTime = performance.now();
+    initLevelFx();
     playMusic(level.music ?? 'level1');
     state.gameState = 'playing';
+    saveGame(state);
 }
 
 export function updateGems() {

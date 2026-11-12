@@ -1,3 +1,4 @@
+import { getWorldWidth } from './levelBounds.js';
 /**
  * hudSystem.js - HUD drawing extracted from main.js
  * Uses state from gameState.js.
@@ -366,7 +367,7 @@ function drawMiniMap() {
     const mapY = 166;
 
     // Calculate world bounds
-    let maxX = CONFIG.worldWidth;
+    let maxX = getWorldWidth(level);
     let maxY = CONFIG.height;
 
     // Find actual level extent
