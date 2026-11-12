@@ -149,7 +149,7 @@ const SKILL_SAVE_KEY = 'shadowrunner_skills';
 let skillLevels = {};  // { skillId: currentLevel }
 let skillPoints = 0;
 let totalXP = 0;
-let xpToNextPoint = 100;  // XP needed for next skill point
+let xpToNextPoint = 75;   // XP needed for next skill point (reduced from 100)
 let currentXPProgress = 0; // XP accumulated toward next point
 
 // Load from localStorage
@@ -198,7 +198,7 @@ export function awardXP(amount, source = '') {
     while (currentXPProgress >= xpToNextPoint) {
         currentXPProgress -= xpToNextPoint;
         skillPoints++;
-        xpToNextPoint = Math.floor(xpToNextPoint * 1.3); // scaling cost
+        xpToNextPoint = Math.floor(xpToNextPoint * 1.2); // scaling cost (reduced from 1.3)
 
         showCenterMessage('SKILL POINT EARNED!', 1.2);
         playSound('itemPickup');

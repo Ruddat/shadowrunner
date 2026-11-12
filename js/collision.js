@@ -1,3 +1,5 @@
+import { CONFIG } from './config.js';
+
 export function rectsOverlap(a, b) {
     return (
         a.x < b.x + b.width &&
@@ -38,7 +40,7 @@ export function detectWallContact(player, platforms) {
     let touchingLeft = false;
     let touchingRight = false;
 
-    const margin = 4; // how close to wall to trigger slide
+    const margin = CONFIG.wallContactMargin; // how close to wall to trigger slide
 
     for (const platform of platforms) {
         // Skip if player is above or below platform

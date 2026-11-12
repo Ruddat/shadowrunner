@@ -133,14 +133,6 @@ export const level1 = {
             "weaponId": "spread"
         },
         {
-            "x": 1660,
-            "y": 240,
-            "width": 42,
-            "height": 42,
-            "reward": "weapon",
-            "weaponId": "laser"
-        },
-        {
             "x": 2260,
             "y": 202,
             "width": 42,
@@ -295,20 +287,6 @@ export const level1 = {
         }
     ],
     "hazards": [
-        {
-            "type": "laser_grid",
-            "id": "laser_1",
-            "x": 1050,
-            "y": 312,
-            "width": 200,
-            "thickness": 4,
-            "damage": 15,
-            "orientation": "horizontal",
-            "cycleTime": 4,
-            "dutyCycle": 0.7,
-            "hackable": true,
-            "alarmRadius": 350
-        },
         {
             "type": "security_cam",
             "id": "cam_1",

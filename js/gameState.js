@@ -59,4 +59,7 @@ export const state = {
     // Stealth system state
     stealthState: null,       // { hidden: bool, visibility: 0-1, source: string }
     previousAlertState: null, // for detecting alert state transitions
+
+    // Global hit-lag: brief freeze on impactful hits (enemy kills, etc.)
+    _hitLag: 0,
 };

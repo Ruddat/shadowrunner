@@ -4,6 +4,7 @@
  */
 
 import { CONFIG } from './config.js';
+import { rectsOverlap } from './collision.js';
 import { Player } from './player.js';
 import { Camera } from './camera.js';
 import { getLevel } from './levels.js';
@@ -192,6 +193,23 @@ function update(dt) {
 
     // Poll gamepads every frame
     pollGamepads();
+
+    // Hit-Lag: brief freeze when player is hit or enemies are killed
+    if (player._hitLagTimer > 0) {
+        player._hitLagTimer -= dt;
+        // During hit-lag, only update camera (for shake) and particles
+        camera.update(dt);
+        updateParticles(dt);
+        return;
+    }
+
+    // Global hit-lag (from enemy impacts)
+    if (state._hitLag > 0) {
+        state._hitLag -= dt;
+        camera.update(dt);
+        updateParticles(dt);
+        return;
+    }
 
     // Options menu: freeze all updates
     if (state.optionsOpen) {
@@ -1255,12 +1273,14 @@ window.addEventListener('keydown', (e) => {
             return;
         }
 
-        if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
-        if (e.code === 'Digit2') switchWeaponForDebug(WEAPON_IDS.SPREAD);
-        if (e.code === 'Digit3') switchWeaponForDebug(WEAPON_IDS.LASER);
-        if (e.code === 'Digit4') switchWeaponForDebug(WEAPON_IDS.WAVE);
-        if (e.code === 'Digit5') switchWeaponForDebug(WEAPON_IDS.BOUNCE);
-        if (e.code === 'Digit6') switchWeaponForDebug(WEAPON_IDS.PLASMA);
+        if (CONFIG.debugWeaponSwitch) {
+            if (e.code === 'Digit1') switchWeaponForDebug(WEAPON_IDS.BLASTER);
+            if (e.code === 'Digit2') switchWeaponForDebug(WEAPON_IDS.SPREAD);
+            if (e.code === 'Digit3') switchWeaponForDebug(WEAPON_IDS.LASER);
+            if (e.code === 'Digit4') switchWeaponForDebug(WEAPON_IDS.WAVE);
+            if (e.code === 'Digit5') switchWeaponForDebug(WEAPON_IDS.BOUNCE);
+            if (e.code === 'Digit6') switchWeaponForDebug(WEAPON_IDS.PLASMA);
+        }
 
         // Pause: Escape or P key
         if (e.code === 'Escape' || e.code === 'KeyP') {
@@ -1595,13 +1615,6 @@ function drawCheckpoints() {
     }
 }
 
-function rectsOverlap(a, b) {
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
-}
+// rectsOverlap is imported from collision.js — use that instead
 
 requestAnimationFrame(loop);

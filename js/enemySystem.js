@@ -34,9 +34,18 @@ const GROUND_ENEMY_TYPES = new Set(['walker', 'shield', 'mech', 'ninja']);
 
 export function updateEnemies(dt) {
     const { currentLevel: level, player, camera } = state;
+    const viewMargin = CONFIG.viewportMargin;
 
     for (const enemy of level.enemies) {
         if (enemy.active === false) continue;
+
+        // Viewport culling: skip enemies far off-screen
+        if (
+            enemy.x + (enemy.width || 50) < camera.x - viewMargin ||
+            enemy.x > camera.x + CONFIG.width + viewMargin
+        ) {
+            continue;
+        }
 
         const type = enemy.type ?? 'walker';
 
@@ -63,10 +72,13 @@ export function updateEnemies(dt) {
 
         // Contact damage (all types)
         if (rectsOverlap(player, enemy)) {
-            player.hit(level, enemy.contactDamage ?? 30);
+            player.hit(level, enemy.contactDamage ?? CONFIG.defaultContactDamage);
             spawnParticles(player.x + player.width / 2, player.y + player.height / 2, 22, '#facc15');
             camera.shake(12, 0.25);
             showCenterMessage('HIT', 0.65);
+
+            // Global hit-lag for impactful contact
+            state._hitLag = 0.08;
 
             // Mech charge impact
             if (type === 'mech' && enemy.charging) {
@@ -671,35 +683,127 @@ function drawSpriteOrFallback(ctx, enemy, type, x, y, fallbackFn) {
 function drawEnemySprite(ctx, enemy, sprite, x, y, type) {
     const drawW = enemy.width;
     const drawH = enemy.height;
+    const time = Date.now();
 
     // Scale sprite frame to fit the enemy hitbox (align feet)
     const scale = drawH / sprite.frameHeight;
     const scaledW = sprite.frameWidth * scale;
     const offsetX = (drawW - scaledW) / 2;
 
+    // Ground shadow for all sprite enemies
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.beginPath();
+    ctx.ellipse(x + drawW / 2, y + drawH + 2, drawW * 0.45, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
     // Ninja cloak alpha
     if (type === 'ninja' && enemy.ninjaCloakAlpha !== undefined) {
         ctx.globalAlpha = Math.max(0.05, enemy.ninjaCloakAlpha);
     }
 
-    // Charge warning glow for mech
-    if (type === 'mech' && enemy.chargeCooldown > 1.0 && enemy.chargeCooldown < 1.5) {
-        const flashAlpha = Math.sin(Date.now() / 50) * 0.5 + 0.5;
-        ctx.shadowColor = '#ef4444';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha * 0.4})`;
-        ctx.fillRect(x - 8, y - 8, enemy.width + 16, enemy.height + 16);
-    }
+    // Type-specific pre-draw effects
+    if (type === 'mech') {
+        // Charge warning glow with pulsing ring
+        if (enemy.chargeCooldown > 1.0 && enemy.chargeCooldown < 1.5) {
+            const flashAlpha = Math.sin(time / 50) * 0.5 + 0.5;
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 24;
+            ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha * 0.4})`;
+            ctx.fillRect(x - 10, y - 10, drawW + 20, drawH + 20);
 
-    // Charge trail for mech
-    if (type === 'mech' && enemy.charging) {
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
-        for (let i = 0; i < 3; i++) {
-            const trailX = x + (enemy.direction === 1 ? -i * 12 : enemy.width + i * 12);
-            const trailY = y + 10 + i * 15;
-            ctx.fillRect(trailX, trailY, 8, 6);
+            // Pulsing warning ring
+            const ringRadius = (drawW / 2 + 14) + Math.sin(time * 0.012) * 6;
+            ctx.strokeStyle = `rgba(239, 68, 68, ${flashAlpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(x + drawW / 2, y + drawH / 2, ringRadius, ringRadius * 0.8, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Charge trail — motion blur particles
+        if (enemy.charging) {
+            for (let i = 0; i < 4; i++) {
+                const trailAlpha = 0.5 - i * 0.1;
+                const trailX = x + (enemy.direction === 1 ? -i * 14 : drawW + i * 14);
+                const trailY = y + 8 + i * 14;
+                const trailW = 10 - i;
+                const trailH = 7 - i;
+
+                ctx.fillStyle = `rgba(239, 68, 68, ${trailAlpha})`;
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(trailX, trailY, trailW, trailH);
+            }
+            ctx.shadowBlur = 0;
+
+            // Speed lines behind mech
+            ctx.strokeStyle = 'rgba(255, 80, 80, 0.35)';
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < 3; i++) {
+                const lineX = x + (enemy.direction === 1 ? -20 - i * 15 : drawW + 20 + i * 15);
+                const lineY = y + 15 + i * 20;
+                ctx.beginPath();
+                ctx.moveTo(lineX, lineY);
+                ctx.lineTo(lineX + enemy.direction * (-18 - i * 5), lineY);
+                ctx.stroke();
+            }
         }
     }
+
+    if (type === 'ninja') {
+        // Ninja: ambient cyan particles when cloaked
+        if (enemy.ninjaCloakAlpha !== undefined && enemy.ninjaCloakAlpha < 0.5) {
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.3)';
+            for (let i = 0; i < 3; i++) {
+                const px = x + Math.sin(time * 0.003 + i * 2.1) * drawW * 0.6 + drawW / 2;
+                const py = y + (time * 0.04 + i * 25) % drawH;
+                const pSize = 1.5 + Math.sin(time * 0.005 + i) * 1;
+                ctx.beginPath();
+                ctx.arc(px, py, pSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    if (type === 'walker') {
+        // Walker: subtle alert indicator when chasing
+        if (enemy.alerted) {
+            const alertPulse = Math.sin(time * 0.01) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 0, 60, ${alertPulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(x + drawW / 2, y - 6, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Exclamation mark
+            ctx.fillStyle = `rgba(255, 0, 60, ${alertPulse})`;
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', x + drawW / 2, y - 10);
+            ctx.textAlign = 'left';
+        }
+    }
+
+    if (type === 'shield') {
+        // Shield: subtle energy shimmer on the sprite when shield is active
+        if (enemy.shieldHP > 0) {
+            const shimmer = Math.sin(time * 0.006) * 0.1 + 0.15;
+            const shieldX = enemy.facingPlayer ? (x + drawW - 5) : (x - 8);
+            ctx.fillStyle = `rgba(96, 165, 250, ${shimmer})`;
+            ctx.fillRect(shieldX - 2, y - 2, 16, drawH + 4);
+        }
+    }
+
+    // Subtle colored outline glow behind sprite
+    const glowColors = {
+        walker: '#ff003c',
+        shield: '#3b82f6',
+        mech: '#dc2626',
+        ninja: '#22d3ee',
+    };
+    ctx.shadowColor = glowColors[type] || '#ff003c';
+    ctx.shadowBlur = (type === 'mech' && enemy.charging) ? 14 : 6;
 
     // Draw the sprite frame
     sprite.drawFrame(
@@ -712,29 +816,29 @@ function drawEnemySprite(ctx, enemy, sprite, x, y, type) {
         { width: scaledW, height: drawH }
     );
 
-    // Ninja afterimage effect during attack
+    ctx.shadowBlur = 0;
+
+    // Ninja afterimage effect during attack — enhanced with ghost trail
     if (type === 'ninja' && enemy.ninjaPhase === 'attack') {
-        ctx.globalAlpha = 0.3;
-        sprite.drawFrame(
-            ctx,
-            x + offsetX - enemy.direction * 15,
-            y,
-            enemy.anim.current,
-            enemy.anim.frameIndex,
-            enemy.direction,
-            { width: scaledW, height: drawH }
-        );
-        ctx.globalAlpha = 0.15;
-        sprite.drawFrame(
-            ctx,
-            x + offsetX - enemy.direction * 30,
-            y,
-            enemy.anim.current,
-            enemy.anim.frameIndex,
-            enemy.direction,
-            { width: scaledW, height: drawH }
-        );
+        const ghostCount = 3;
+        for (let g = 1; g <= ghostCount; g++) {
+            const ghostAlpha = 0.35 - g * 0.1;
+            ctx.globalAlpha = Math.max(0.05, ghostAlpha);
+            ctx.shadowColor = '#22d3ee';
+            ctx.shadowBlur = 8;
+
+            sprite.drawFrame(
+                ctx,
+                x + offsetX - enemy.direction * (g * 16),
+                y,
+                enemy.anim.current,
+                enemy.anim.frameIndex,
+                enemy.direction,
+                { width: scaledW, height: drawH }
+            );
+        }
         ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
     }
 
     // Shield overlay (drawn on top of sprite)
@@ -795,6 +899,31 @@ function drawWalker(ctx, enemy, x, y) {
 // --- Drone draw: floating eye with propeller ---
 
 function drawDrone(ctx, enemy, x, y) {
+    const time = Date.now();
+
+    // Ground shadow (small, subtle)
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.10)';
+    ctx.beginPath();
+    ctx.ellipse(x + enemy.width / 2, y + enemy.height + 4, enemy.width * 0.3, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Hover bob
+    const bob = Math.sin(time / 300) * 2;
+
+    // Ambient glow ring
+    ctx.save();
+    const glowGrad = ctx.createRadialGradient(
+        x + enemy.width / 2, y + enemy.height / 2 + bob, 0,
+        x + enemy.width / 2, y + enemy.height / 2 + bob, enemy.width * 0.7
+    );
+    glowGrad.addColorStop(0, 'rgba(255, 107, 0, 0.15)');
+    glowGrad.addColorStop(1, 'rgba(255, 107, 0, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(x - 10, y - 10 + bob, enemy.width + 20, enemy.height + 20);
+    ctx.restore();
+
     // Glow
     ctx.shadowColor = '#ff6b00';
     ctx.shadowBlur = 22;
@@ -802,40 +931,70 @@ function drawDrone(ctx, enemy, x, y) {
     // Body
     ctx.fillStyle = '#1a1025';
     ctx.beginPath();
-    ctx.ellipse(x + enemy.width / 2, y + enemy.height / 2, enemy.width / 2, enemy.height / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + enemy.width / 2, y + enemy.height / 2 + bob, enemy.width / 2, enemy.height / 2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Propeller (animated)
-    const propPhase = Date.now() / 30;
-    ctx.strokeStyle = 'rgba(255, 107, 0, 0.6)';
-    ctx.lineWidth = 2;
+    // Body ring detail
+    ctx.strokeStyle = 'rgba(255, 107, 0, 0.3)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(x + 5, y + 4 + Math.sin(propPhase) * 3);
-    ctx.lineTo(x + enemy.width - 5, y + 4 - Math.sin(propPhase) * 3);
+    ctx.ellipse(x + enemy.width / 2, y + enemy.height / 2 + bob, enemy.width / 2 + 3, enemy.height / 2 + 3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Propeller (animated)
+    const propPhase = time / 30;
+    ctx.strokeStyle = 'rgba(255, 107, 0, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 5, y + 4 + bob + Math.sin(propPhase) * 4);
+    ctx.lineTo(x + enemy.width - 5, y + 4 + bob - Math.sin(propPhase) * 4);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x + enemy.width / 2 - 8, y + 2 + Math.cos(propPhase) * 2);
-    ctx.lineTo(x + enemy.width / 2 + 8, y + 2 - Math.cos(propPhase) * 2);
+    ctx.moveTo(x + enemy.width / 2 - 8, y + 2 + bob + Math.cos(propPhase) * 3);
+    ctx.lineTo(x + enemy.width / 2 + 8, y + 2 + bob - Math.cos(propPhase) * 3);
     ctx.stroke();
 
     // Eye
     ctx.fillStyle = enemy.swooping ? '#ff0000' : '#ff6b00';
     ctx.beginPath();
-    ctx.arc(x + enemy.width / 2, y + enemy.height / 2, 8, 0, Math.PI * 2);
+    ctx.arc(x + enemy.width / 2, y + enemy.height / 2 + bob, 8, 0, Math.PI * 2);
     ctx.fill();
+
+    // Eye inner ring
+    ctx.strokeStyle = enemy.swooping ? 'rgba(255, 0, 0, 0.6)' : 'rgba(255, 107, 0, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x + enemy.width / 2, y + enemy.height / 2 + bob, 10, 0, Math.PI * 2);
+    ctx.stroke();
 
     // Pupil
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(x + enemy.width / 2 + 2 * enemy.direction, y + enemy.height / 2, 3, 0, Math.PI * 2);
+    ctx.arc(x + enemy.width / 2 + 2 * enemy.direction, y + enemy.height / 2 + bob, 3, 0, Math.PI * 2);
     ctx.fill();
 
     // Swoop warning indicator
     if (enemy.swooping) {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.ellipse(x + enemy.width / 2, y + enemy.height / 2, enemy.width * 0.8, enemy.height * 0.8, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + enemy.width / 2, y + enemy.height / 2 + bob, enemy.width * 0.8, enemy.height * 0.8, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        // Speed trail
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.4)';
+        ctx.lineWidth = 2;
+        for (let i = 1; i <= 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(
+                x + enemy.width / 2 - enemy.direction * (i * 10),
+                y + enemy.height / 2 + bob - 5
+            );
+            ctx.lineTo(
+                x + enemy.width / 2 - enemy.direction * (i * 10),
+                y + enemy.height / 2 + bob + 5
+            );
+            ctx.stroke();
+        }
     }
 }
 
@@ -947,55 +1106,111 @@ function drawMech(ctx, enemy, x, y) {
 // --- Turret draw: stationary gun emplacement ---
 
 function drawTurret(ctx, enemy, x, y) {
+    const time = Date.now();
+    const centerX = x + enemy.width / 2;
+    const centerY = y + enemy.height / 2;
+    const angle = enemy.turretAngle ?? 0;
+
+    // Ambient energy field
+    ctx.save();
+    const fieldGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, enemy.width * 0.8);
+    fieldGrad.addColorStop(0, 'rgba(168, 85, 247, 0.08)');
+    fieldGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+    ctx.fillStyle = fieldGrad;
+    ctx.fillRect(x - 12, y - 12, enemy.width + 24, enemy.height + 24);
+    ctx.restore();
+
     // Base
     ctx.shadowColor = '#a855f7';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
 
     ctx.fillStyle = '#1a0a2e';
     ctx.fillRect(x + 4, y + enemy.height - 16, enemy.width - 8, 16);
 
-    // Base details
+    // Base details — layered
     ctx.fillStyle = '#7c3aed';
     ctx.fillRect(x + 8, y + enemy.height - 12, enemy.width - 16, 4);
+
+    ctx.fillStyle = '#6d28d9';
+    ctx.fillRect(x + 6, y + enemy.height - 6, enemy.width - 12, 3);
 
     // Turret dome
     ctx.fillStyle = '#0f0520';
     ctx.beginPath();
-    ctx.arc(x + enemy.width / 2, y + enemy.height / 2, enemy.width / 3, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, enemy.width / 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Barrel (rotates toward player)
-    const angle = enemy.turretAngle ?? 0;
-    const barrelLength = enemy.width / 2 + 8;
-    const barrelStartX = x + enemy.width / 2;
-    const barrelStartY = y + enemy.height / 2;
-    const barrelEndX = barrelStartX + Math.cos(angle) * barrelLength;
-    const barrelEndY = barrelStartY + Math.sin(angle) * barrelLength;
+    // Dome ring detail
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, enemy.width / 3 + 3, 0, Math.PI * 2);
+    ctx.stroke();
 
-    ctx.strokeStyle = '#a855f7';
-    ctx.lineWidth = 6;
+    // Barrel (rotates toward player)
+    const barrelLength = enemy.width / 2 + 8;
+    const barrelEndX = centerX + Math.cos(angle) * barrelLength;
+    const barrelEndY = centerY + Math.sin(angle) * barrelLength;
+
+    // Barrel shadow
+    ctx.strokeStyle = '#5b21b6';
+    ctx.lineWidth = 8;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(barrelStartX, barrelStartY);
+    ctx.moveTo(centerX, centerY);
     ctx.lineTo(barrelEndX, barrelEndY);
     ctx.stroke();
 
-    // Barrel tip glow
-    ctx.fillStyle = '#c084fc';
+    // Barrel
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(barrelEndX, barrelEndY);
+    ctx.stroke();
+
+    // Barrel highlight line
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(centerX + Math.cos(angle) * 4, centerY + Math.sin(angle) * 4);
+    ctx.lineTo(barrelEndX, barrelEndY);
+    ctx.stroke();
+
+    // Barrel tip glow — pulsing
+    const tipPulse = Math.sin(time * 0.006) * 0.2 + 0.8;
+    ctx.fillStyle = `rgba(192, 132, 252, ${tipPulse})`;
+    ctx.shadowColor = '#c084fc';
+    ctx.shadowBlur = 14;
     ctx.beginPath();
     ctx.arc(barrelEndX, barrelEndY, 4, 0, Math.PI * 2);
     ctx.fill();
 
+    // Targeting laser line (thin, translucent)
+    ctx.strokeStyle = `rgba(168, 85, 247, ${0.12 + Math.sin(time * 0.004) * 0.06})`;
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(barrelEndX, barrelEndY);
+    ctx.lineTo(barrelEndX + Math.cos(angle) * 60, barrelEndY + Math.sin(angle) * 60);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
     // Center eye
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#a855f7';
     ctx.fillStyle = '#a855f7';
     ctx.beginPath();
-    ctx.arc(x + enemy.width / 2, y + enemy.height / 2, 6, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
     ctx.fill();
 
+    // Eye pupil (follows angle)
     ctx.fillStyle = '#e9d5ff';
     ctx.beginPath();
-    ctx.arc(x + enemy.width / 2 + Math.cos(angle) * 2, y + enemy.height / 2 + Math.sin(angle) * 2, 2.5, 0, Math.PI * 2);
+    ctx.arc(centerX + Math.cos(angle) * 2.5, centerY + Math.sin(angle) * 2.5, 2.5, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.shadowBlur = 0;
 }
 
 // --- Ninja draw (canvas fallback) ---

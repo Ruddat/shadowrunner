@@ -7,6 +7,7 @@ import { level6 } from './level6.js';
 import { level7 } from './level7.js';
 import { level8 } from './level8.js';
 import { level9Boss } from './level9Boss.js';
+import { level10 } from './level10.js'; 
 
 // Levels 0-3 are static, level 4 (index 4) is procedurally generated,
 // levels 5-7 are new hand-crafted levels, level 8 is the second boss
@@ -14,6 +15,7 @@ const STATIC_LEVELS = [
     level1,
     level2,
     level3,
+    level10,
     level4Boss,
 ];
 
@@ -23,6 +25,7 @@ const POST_PROC_LEVELS = [
     level7,
     level8,
     level9Boss,
+    level10,
 ];
 
 export const LEVEL_COUNT = STATIC_LEVELS.length + 1 + POST_PROC_LEVELS.length; // 9 levels total (0-8)

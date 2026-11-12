@@ -71,6 +71,9 @@ export class SpriteSheet {
 
         ctx.save();
 
+        // Disable image smoothing for crisp pixel-art rendering
+        ctx.imageSmoothingEnabled = false;
+
         if (facing === -1) {
             // Flip horizontally: translate to center, scale -1, draw offset
             ctx.translate(x + drawWidth, y);

@@ -25,7 +25,27 @@ export class Player {
         this.velocityY = 0;
 
         this.onGround = false;
+        this.wasOnGround = false;
         this.facing = 1;
+
+        // Coyote Time:短暂 grace period after leaving a platform
+        this.coyoteTimer = 0;
+        this.coyoteTime = 0.14; // 140ms window to still jump after leaving edge
+
+        // Jump Buffer: press jump slightly before landing → auto-jump on contact
+        this.jumpBufferTimer = 0;
+        this.jumpBufferTime = 0.12; // 120ms buffer window
+
+        // Hang Time: less gravity near apex of jump for "floaty" feel
+        this.hangTimeThreshold = 60; // velocity threshold for hang zone
+        this.hangGravityMultiplier = 0.35; // gravity reduced to 35% near apex
+
+        // Squash & Stretch
+        this.scaleX = 1;
+        this.scaleY = 1;
+        this.targetScaleX = 1;
+        this.targetScaleY = 1;
+        this.squashRecovery = 10; // how fast scale returns to normal
 
         // Wall-Jump / Wall-Slide state
         this.wallSliding = false;
@@ -81,6 +101,9 @@ export class Player {
     update(dt, level) {
         this.prevY = this.y;
 
+        // Save previous ground state for coyote time
+        this.wasOnGround = this.onGround;
+
         this.updateShadowShift(dt);
         this.updateShadowDash(dt);
         this.syncShadowPlatforms(level);
@@ -101,11 +124,11 @@ export class Player {
         }
 
         if (this.shadowShift) {
-            this.velocityX *= 1.08;
+            this.velocityX *= CONFIG.shadowSpeedMultiplier;
         }
 
         if (this.shadowDashTimer > 0) {
-            this.velocityX += this.facing * 880;
+            this.velocityX += this.facing * CONFIG.shadowDashSpeed;
         }
 
         // Wall-Jump cooldown: briefly override movement direction after wall-jump
@@ -113,10 +136,35 @@ export class Player {
             this.wallJumpCooldown -= dt;
         }
 
-        // --- Jump ---
-        if (keys.jump && this.onGround) {
+        // --- Coyote Time & Jump Buffering ---
+        // Update coyote timer: starts when player leaves ground without jumping
+        if (this.wasOnGround && !this.onGround) {
+            // Player just left ground (walked off edge, didn't jump)
+            this.coyoteTimer = this.coyoteTime;
+        }
+        if (this.coyoteTimer > 0) {
+            this.coyoteTimer -= dt;
+        }
+
+        // Update jump buffer: starts when jump is pressed while airborne
+        if (keys.jump && !this.onGround) {
+            this.jumpBufferTimer = this.jumpBufferTime;
+        }
+        if (this.jumpBufferTimer > 0) {
+            this.jumpBufferTimer -= dt;
+        }
+
+        // --- Jump (with Coyote Time support) ---
+        const canJump = this.onGround || this.coyoteTimer > 0;
+        if (keys.jump && canJump) {
             this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 1.06 : -CONFIG.jumpForce;
             this.onGround = false;
+            this.coyoteTimer = 0; // consume coyote time
+            this.jumpBufferTimer = 0; // consume jump buffer
+
+            // Squash: stretch vertically on jump
+            this.targetScaleX = 0.75;
+            this.targetScaleY = 1.3;
         } else if (keys.jump && !this.onGround && this._doubleJumpAvailable) {
             // Double Jump from Shop
             if (tryDoubleJump(this)) {
@@ -124,6 +172,10 @@ export class Player {
                 this._doubleJumpAvailable = false;
                 spawnParticles(this.x + this.width / 2, this.y + this.height, 12, '#a855f7');
                 showCenterMessage('DOUBLE JUMP', 0.5);
+
+                // Squash on double jump too
+                this.targetScaleX = 0.8;
+                this.targetScaleY = 1.25;
             }
         }
 
@@ -143,13 +195,19 @@ export class Player {
             this.shootCooldown -= dt;
         }
 
-        // --- Gravity ---
+        // --- Gravity (with Hang Time near apex) ---
         if (this.wallSliding && this.velocityY > 0) {
             // Wall-slide: much slower fall
             this.velocityY += CONFIG.wallSlideGravity * dt;
             this.velocityY = Math.min(this.velocityY, CONFIG.wallSlideThreshold);
         } else {
-            this.velocityY += CONFIG.gravity * dt;
+            // Hang Time: reduce gravity near jump apex for floatier feel
+            const absVelY = Math.abs(this.velocityY);
+            if (absVelY < this.hangTimeThreshold && !this.onGround) {
+                this.velocityY += CONFIG.gravity * this.hangGravityMultiplier * dt;
+            } else {
+                this.velocityY += CONFIG.gravity * dt;
+            }
         }
 
         // --- Combo timer decay ---
@@ -246,6 +304,35 @@ export class Player {
             }
         }
 
+        // --- Landing Detection: Jump Buffer & Squash ---
+        if (this.onGround && !this.wasOnGround) {
+            // Just landed! Apply squash effect (horizontal squeeze)
+            this.targetScaleX = 1.3;
+            this.targetScaleY = 0.7;
+            playSound('itemPickup'); // subtle landing feedback (reuse existing sound)
+        }
+
+        // Jump Buffer: if jump was pressed while falling, auto-jump on landing
+        if (this.onGround && this.jumpBufferTimer > 0) {
+            this.velocityY = this.shadowShift ? -CONFIG.jumpForce * 1.06 : -CONFIG.jumpForce;
+            this.onGround = false;
+            this.jumpBufferTimer = 0;
+            this.coyoteTimer = 0;
+
+            // Jump stretch
+            this.targetScaleX = 0.75;
+            this.targetScaleY = 1.3;
+        }
+
+        // --- Squash & Stretch Recovery ---
+        const recoverySpeed = this.squashRecovery * dt;
+        this.scaleX += (this.targetScaleX - this.scaleX) * recoverySpeed;
+        this.scaleY += (this.targetScaleY - this.scaleY) * recoverySpeed;
+
+        // Ease targets back to normal
+        this.targetScaleX += (1 - this.targetScaleX) * 3 * dt;
+        this.targetScaleY += (1 - this.targetScaleY) * 3 * dt;
+
         if (this.y > CONFIG.height + 300) {
             this.energy = 0;
             this.hit(level, 999);
@@ -317,6 +404,10 @@ export class Player {
             this._wallJumpDir = jumpDir;
             this._wallJumpTimer = 0.15;
 
+            // Squash: diagonal stretch for wall-jump kick
+            this.targetScaleX = 0.8;
+            this.targetScaleY = 1.2;
+
             playSound('shootBounce'); // reuse bounce sound for wall-jump
         }
 
@@ -360,7 +451,7 @@ export class Player {
 
     checkDashAttack(level) {
         // Skill: Dash Power adds extra damage
-        const dashDamage = 2 + getExtraDashDamage();
+        const dashDamage = CONFIG.shadowDashAttackDamage + getExtraDashDamage();
 
         // Check enemies
         if (level.enemies) {
@@ -490,11 +581,11 @@ export class Player {
         if (
             keys.dash &&
             this.shadowDashCooldown <= 0 &&
-            this.shadowEnergy >= 18
+            this.shadowEnergy >= CONFIG.shadowDashCost
         ) {
             this.shadowDashTimer = 0.14;
-            this.shadowDashCooldown = 0.65;
-            this.shadowEnergy -= 18;
+            this.shadowDashCooldown = CONFIG.shadowDashCooldownTime;
+            this.shadowEnergy -= CONFIG.shadowDashCost;
             this.shadowShift = true;
             this.dashHitEnemies.clear(); // fresh hit list for this dash
             this.dashTrail = []; // fresh trail
@@ -542,6 +633,26 @@ export class Player {
 
         this.energy = Math.max(0, this.energy - finalDamage);
         this.invincibleTimer = 1.0;
+
+        // Hit-Lag: brief freeze for impact feel
+        this._hitLagTimer = 0.06;
+
+        // Damage squash (get squished when hit)
+        this.targetScaleX = 1.4;
+        this.targetScaleY = 0.7;
+
+        // Camera shake on hit
+        if (state.camera) {
+            state.camera.shake(8, 0.15);
+        }
+
+        // Hit particles
+        spawnParticles(
+            this.x + this.width / 2,
+            this.y + this.height / 2,
+            10,
+            '#ef4444'
+        );
 
         if (this.energy > 0) {
             return;
@@ -593,7 +704,7 @@ export class Player {
         this.playWeaponSound();
         // Skill: Fire Rate reduces cooldown
         const fireRateMult = getFireRateMultiplier();
-        this.shootCooldown = (this.shadowShift ? weapon.fireRate * 0.85 : weapon.fireRate) * fireRateMult;
+        this.shootCooldown = (this.shadowShift ? weapon.fireRate * CONFIG.shadowShootRateMultiplier : weapon.fireRate) * fireRateMult;
     }
 
     playWeaponSound() {
@@ -702,51 +813,123 @@ export class Player {
         const screenX = this.x - camera.x;
         const screenY = this.y - camera.y;
         const sprite = getPlayerSprite();
+        const time = Date.now();
 
         ctx.save();
 
-        // Shadow Shift / Dash aura
-        if (this.shadowShift || this.shadowDashTimer > 0) {
-            ctx.shadowColor = '#7c3cff';
-            ctx.shadowBlur = this.shadowDashTimer > 0 ? 52 : 34;
-            ctx.fillStyle = this.shadowDashTimer > 0
-                ? 'rgba(124, 60, 255, 0.34)'
-                : 'rgba(124, 60, 255, 0.22)';
+        // Apply Squash & Stretch transformation
+        const centerX = screenX + this.width / 2;
+        const centerY = screenY + this.height; // anchor at feet
+        ctx.translate(centerX, centerY);
+        ctx.scale(this.scaleX, this.scaleY);
+        ctx.translate(-centerX, -centerY);
 
+        // ── Ground shadow ──
+        const shadowPulse = Math.sin(time * 0.004) * 0.08 + 0.18;
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 0, 0, ${shadowPulse})`;
+        ctx.beginPath();
+        ctx.ellipse(
+            screenX + this.width / 2,
+            screenY + this.height + 3,
+            this.width * 0.55,
+            5,
+            0, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+
+        // Shadow Shift / Dash aura — enhanced with pulse
+        if (this.shadowShift || this.shadowDashTimer > 0) {
+            const pulse = Math.sin(time * 0.008) * 0.06;
+            const isDash = this.shadowDashTimer > 0;
+            ctx.shadowColor = '#7c3cff';
+            ctx.shadowBlur = isDash ? 52 : 34;
+
+            // Outer glow ring
+            ctx.fillStyle = isDash
+                ? `rgba(124, 60, 255, ${0.18 + pulse})`
+                : `rgba(124, 60, 255, ${0.12 + pulse})`;
             ctx.beginPath();
             ctx.ellipse(
                 screenX + this.width / 2,
                 screenY + this.height / 2,
-                this.width * 1.15,
-                this.height * 0.82,
-                0,
-                0,
-                Math.PI * 2
+                this.width * 1.2,
+                this.height * 0.85,
+                0, 0, Math.PI * 2
             );
             ctx.fill();
+
+            // Inner bright core
+            ctx.fillStyle = isDash
+                ? 'rgba(160, 100, 255, 0.18)'
+                : 'rgba(160, 100, 255, 0.10)';
+            ctx.beginPath();
+            ctx.ellipse(
+                screenX + this.width / 2,
+                screenY + this.height / 2,
+                this.width * 0.75,
+                this.height * 0.6,
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
+        }
+
+        // Dash Trail — enhanced afterimages with color shift
+        if (this.dashTrail.length > 0) {
+            for (let i = 0; i < this.dashTrail.length; i++) {
+                const trail = this.dashTrail[i];
+                const alpha = (i + 1) / (this.dashTrail.length + 1) * 0.35;
+                const trailX = trail.x - camera.x;
+                const trailY = trail.y - camera.y;
+
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.shadowShift ? '#b388ff' : '#ff2bd6';
+                ctx.shadowColor = this.shadowShift ? '#7c3cff' : '#ff2bd6';
+                ctx.shadowBlur = 12;
+
+                // Draw ghost silhouette
+                ctx.fillRect(trailX + 4, trailY + 4, this.width - 8, this.height - 8);
+
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
         }
 
         // Wall-slide visual: sparks on the touching side
         if (this.wallSliding) {
             ctx.shadowColor = '#facc15';
-            ctx.shadowBlur = 16;
+            ctx.shadowBlur = 20;
             ctx.fillStyle = '#facc15';
 
             const sparkX = this.wallSide === 'left'
                 ? screenX - 2
                 : screenX + this.width - 2;
 
-            const sparkPhase = (Date.now() % 200) / 200;
-            for (let i = 0; i < 3; i++) {
-                const offsetY = (i * 18 + sparkPhase * 12) % 54;
-                const sparkSize = 3 + Math.sin(Date.now() / 50 + i) * 2;
+            const sparkPhase = (time % 200) / 200;
+            for (let i = 0; i < 5; i++) {
+                const offsetY = (i * 14 + sparkPhase * 12) % 70;
+                const sparkSize = 3 + Math.sin(time / 50 + i * 1.3) * 2;
+                ctx.globalAlpha = 0.6 + Math.sin(time / 80 + i) * 0.4;
                 ctx.fillRect(
                     sparkX - sparkSize / 2,
-                    screenY + 10 + offsetY,
+                    screenY + 8 + offsetY,
                     sparkSize,
                     sparkSize
                 );
             }
+            ctx.globalAlpha = 1;
+
+            // Friction glow on wall contact side
+            const glowX = this.wallSide === 'left' ? screenX - 6 : screenX + this.width - 6;
+            const wallGlow = ctx.createRadialGradient(
+                glowX + 3, screenY + this.height / 2, 0,
+                glowX + 3, screenY + this.height / 2, 20
+            );
+            wallGlow.addColorStop(0, 'rgba(250, 204, 21, 0.25)');
+            wallGlow.addColorStop(1, 'rgba(250, 204, 21, 0)');
+            ctx.fillStyle = wallGlow;
+            ctx.fillRect(glowX - 17, screenY - 5, 40, this.height + 10);
         }
 
         // Invincibility flash
@@ -760,7 +943,6 @@ export class Player {
             const drawW = this.width;
             const drawH = this.height;
 
-            // Offset: sprite is centered in frame, we need to align feet
             const spriteFrameW = sprite.frameWidth;
             const spriteFrameH = sprite.frameHeight;
 
@@ -768,6 +950,10 @@ export class Player {
             const scale = drawH / spriteFrameH;
             const scaledW = spriteFrameW * scale;
             const offsetX = (drawW - scaledW) / 2;
+
+            // Subtle outline glow behind sprite
+            ctx.shadowColor = this.shadowShift ? '#7c3cff' : '#ff2bd6';
+            ctx.shadowBlur = this.shadowShift ? 10 : 6;
 
             sprite.drawFrame(
                 ctx,
@@ -779,10 +965,19 @@ export class Player {
                 { width: scaledW, height: drawH }
             );
 
-            // Shadow mode tint overlay
+            ctx.shadowBlur = 0;
+
+            // Shadow mode tint overlay with gradient
             if (this.shadowShift) {
                 ctx.globalCompositeOperation = 'source-atop';
-                ctx.fillStyle = 'rgba(100, 60, 255, 0.3)';
+                const tintGrad = ctx.createLinearGradient(
+                    screenX + offsetX, screenY,
+                    screenX + offsetX, screenY + drawH
+                );
+                tintGrad.addColorStop(0, 'rgba(100, 60, 255, 0.35)');
+                tintGrad.addColorStop(0.5, 'rgba(124, 60, 255, 0.20)');
+                tintGrad.addColorStop(1, 'rgba(160, 100, 255, 0.30)');
+                ctx.fillStyle = tintGrad;
                 ctx.fillRect(screenX + offsetX, screenY, scaledW, drawH);
                 ctx.globalCompositeOperation = 'source-over';
             }
