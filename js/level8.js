@@ -40,6 +40,9 @@ export const level8 = {
 
         // Exit platform
         { x: 4520, y: 402, width: 300, height: 40 },
+
+        // Overlook above the triple ascent
+        { x: 1000, y: 180, width: 140, height: 28 },
     ],
 
     shadowPlatforms: [
@@ -68,7 +71,11 @@ export const level8 = {
         { x: 310, y: 342, collected: false },
 
         { x: 640, y: 292, collected: false },
-        { x: 900, y: 232, collected: false },
+
+        // Overlook above the triple ascent
+        { x: 1030, y: 140, collected: false },
+        { x: 1090, y: 140, collected: false },
+
         { x: 1140, y: 172, collected: false },
 
         { x: 1410, y: 262, collected: false },
@@ -128,6 +135,16 @@ export const level8 = {
             bumpTimer: 0,
             reward: 'weapon',
             weaponId: 'plasma',
+        },
+        {
+            x: 1060,
+            y: 128,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'random',
+            randomPool: ['gem', 'energy', 'life'],
         },
     ],
 
@@ -398,6 +415,40 @@ export const level8 = {
         sparks: true,
         warningLights: true,
     },
+
+    hazards: [
+        {
+            type: 'laser_grid',
+            id: 'laser_8a',
+            x: 3440,
+            y: 270,
+            width: 140,
+            thickness: 4,
+            damage: 22,
+            orientation: 'horizontal',
+            cycleTime: 2.4,
+            dutyCycle: 0.55,
+            hackable: false,
+            alarmRadius: 0,
+        },
+        {
+            type: 'security_cam',
+            id: 'cam_8',
+            x: 2500,
+            y: 380,
+            width: 20,
+            height: 16,
+            range: 280,
+            coneAngle: 1.3,
+            startAngle: 0.4,
+            minAngle: -0.5,
+            maxAngle: 0.9,
+            rotateSpeed: 0.6,
+            _direction: 1,
+            hackable: true,
+            alarmRadius: 380,
+        },
+    ],
 
     exit: {
         x: 4720,

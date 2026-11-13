@@ -71,6 +71,10 @@ export const level10 = {
             cycleTime: 2.4, dutyCycle: 0.5, damage: 20 },
     ],
     shopTerminals: [{ x: 3940, y: 350, width: 36, height: 52 }],
+    dataLogs: [
+        { x: 1580, y: 200, width: 30, height: 36, logId: 'log_10_1', collected: false },
+        { x: 3360, y: 200, width: 30, height: 36, logId: 'log_10_2', collected: false },
+    ],
     fx: { fog: true, rain: false, scanlines: true, neonDust: true, sparks: true, warningLights: true },
     exit: { x: 4200, y: 302, width: 70, height: 100, locked: true,
         keysRequired: 3, unlockMode: 'allGemsOrEnemiesOrKeys' },

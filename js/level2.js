@@ -30,6 +30,20 @@ export const level2 = {
 
         // Finale Dachkante
         { x: 3920, y: 402, width: 360, height: 40 },
+
+        // Riskanter Boden-Umweg unter der ersten Steigung
+        { x: 760, y: 412, width: 150, height: 40 },
+
+        // Ausguck über dem Kampfbereich
+        { x: 2760, y: 280, width: 160, height: 28 },
+    ],
+
+    shadowPlatforms: [
+        // Secret über dem Multi-Hit-Block
+        { x: 1450, y: 160, width: 140, height: 24 },
+
+        // Secret kurz vor dem Exit
+        { x: 3750, y: 160, width: 140, height: 24 },
     ],
 
     gems: [
@@ -40,7 +54,14 @@ export const level2 = {
 
         // Plattform 1
         { x: 665, y: 302, collected: false },
-        { x: 755, y: 302, collected: false },
+
+        // Riskanter Boden-Umweg
+        { x: 790, y: 360, collected: false },
+        { x: 850, y: 360, collected: false },
+
+        // Secret über dem Multi-Hit-Block
+        { x: 1470, y: 120, collected: false },
+        { x: 1530, y: 120, collected: false },
 
         // Höherer Sprung
         { x: 980, y: 252, collected: false },
@@ -64,15 +85,21 @@ export const level2 = {
 
         // Kampfbereich unten
         { x: 2720, y: 332, collected: false },
-        { x: 2840, y: 332, collected: false },
         { x: 2960, y: 332, collected: false },
+
+        // Ausguck über dem Kampfbereich
+        { x: 2800, y: 240, collected: false },
+        { x: 2860, y: 240, collected: false },
 
         // Endzone
         { x: 3290, y: 272, collected: false },
         { x: 3380, y: 272, collected: false },
 
         { x: 3650, y: 222, collected: false },
-        { x: 3740, y: 222, collected: false },
+
+        // Secret kurz vor dem Exit
+        { x: 3770, y: 120, collected: false },
+        { x: 3830, y: 120, collected: false },
 
         { x: 4010, y: 332, collected: false },
         { x: 4130, y: 332, collected: false },
@@ -178,6 +205,30 @@ export const level2 = {
             reward: 'random',
             randomPool: ['gem', 'energy', 'gem'],
             hits: 2,
+        },
+
+        // Riskanter Boden-Umweg
+        {
+            x: 820,
+            y: 320,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'random',
+            randomPool: ['gem', 'energy', 'life'],
+        },
+
+        // Ausguck über dem Kampfbereich
+        {
+            x: 2830,
+            y: 190,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'weapon',
+            weaponId: 'laser',
         },
     ],
 
@@ -539,6 +590,16 @@ export const level2 = {
             triggerAlarm: true,
             spawnEnemy: true,
             alarmRadius: 500,
+        },
+        {
+            type: 'tripwire',
+            id: 'trip_2b',
+            x: 760,
+            y: 402,
+            width: 80,
+            height: 8,
+            triggerAlarm: true,
+            alarmRadius: 380,
         },
     ],
 

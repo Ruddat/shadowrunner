@@ -34,6 +34,12 @@ export const level6 = {
 
         // Exit platform
         { x: 4080, y: 402, width: 360, height: 40 },
+
+        // Low-risk detour - ground-level alt route past the first jump
+        { x: 700, y: 412, width: 140, height: 40 },
+
+        // Arena overlook - vantage ledge above the shield/mech fight
+        { x: 2150, y: 280, width: 160, height: 28 },
     ],
 
     shadowPlatforms: [
@@ -49,28 +55,50 @@ export const level6 = {
             width: 140,
             height: 24,
         },
+        {
+            x: 3900,
+            y: 160,
+            width: 140,
+            height: 24,
+        },
     ],
 
     gems: [
         { x: 170, y: 342, collected: false },
         { x: 290, y: 342, collected: false },
 
-        { x: 600, y: 302, collected: false },
         { x: 890, y: 252, collected: false },
+
+        // Low-risk detour reward
+        { x: 740, y: 360, collected: false },
+        { x: 800, y: 360, collected: false },
+
+        // Shadow-dash secret above the first ascent
+        { x: 1220, y: 140, collected: false },
+        { x: 1280, y: 140, collected: false },
 
         { x: 1150, y: 212, collected: false },
         { x: 1420, y: 282, collected: false },
         { x: 1660, y: 222, collected: false },
 
         { x: 2120, y: 332, collected: false },
-        { x: 2260, y: 332, collected: false },
         { x: 2380, y: 252, collected: false },
 
-        { x: 2720, y: 212, collected: false },
+        // Arena overlook reward
+        { x: 2180, y: 240, collected: false },
+        { x: 2240, y: 240, collected: false },
+
+        // Shadow-dash secret above turret alley
+        { x: 2780, y: 150, collected: false },
+        { x: 2840, y: 150, collected: false },
+
         { x: 3020, y: 242, collected: false },
 
         { x: 3600, y: 242, collected: false },
-        { x: 3860, y: 182, collected: false },
+
+        // Shadow-dash secret before the final approach
+        { x: 3920, y: 120, collected: false },
+        { x: 3980, y: 120, collected: false },
 
         { x: 4160, y: 332, collected: false },
         { x: 4280, y: 332, collected: false },
@@ -85,6 +113,26 @@ export const level6 = {
             used: false,
             bumpTimer: 0,
             reward: 'energy',
+        },
+        {
+            x: 760,
+            y: 320,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'random',
+            randomPool: ['gem', 'energy', 'life'],
+        },
+        {
+            x: 2220,
+            y: 190,
+            width: 42,
+            height: 42,
+            used: false,
+            bumpTimer: 0,
+            reward: 'weapon',
+            weaponId: 'wave',
         },
         {
             x: 1140,
@@ -129,7 +177,7 @@ export const level6 = {
     ],
 
     keys: [
-        { x: 880, y: 240 },
+        { x: 770, y: 350 },
         { x: 2710, y: 200 },
         { x: 3850, y: 170 },
     ],
@@ -376,6 +424,19 @@ export const level6 = {
         neonDust: true,
         sparks: true,
     },
+
+    hazards: [
+        {
+            type: 'tripwire',
+            id: 'trip_6_1',
+            x: 700,
+            y: 402,
+            width: 80,
+            height: 8,
+            triggerAlarm: true,
+            alarmRadius: 380,
+        },
+    ],
 
     exit: {
         x: 4340,

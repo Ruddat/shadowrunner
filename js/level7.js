@@ -35,6 +35,9 @@ export const level7 = {
         // Final corridor
         { x: 4120, y: 382, width: 260, height: 32 },
         { x: 4500, y: 402, width: 380, height: 40 },
+
+        // Low-risk bypass under the shield gauntlet
+        { x: 800, y: 412, width: 140, height: 40 },
     ],
 
     shadowPlatforms: [
@@ -64,6 +67,11 @@ export const level7 = {
         { x: 420, y: 342, collected: false },
 
         { x: 670, y: 302, collected: false },
+
+        // Low-risk bypass reward
+        { x: 830, y: 360, collected: false },
+        { x: 890, y: 360, collected: false },
+
         { x: 990, y: 252, collected: false },
         { x: 1280, y: 302, collected: false },
 
@@ -423,6 +431,37 @@ export const level7 = {
         sparks: true,
         warningLights: true,
     },
+
+    hazards: [
+        {
+            type: 'tripwire',
+            id: 'trip_7',
+            x: 800,
+            y: 402,
+            width: 80,
+            height: 8,
+            triggerAlarm: true,
+            spawnEnemy: true,
+            alarmRadius: 420,
+        },
+        {
+            type: 'security_cam',
+            id: 'cam_7',
+            x: 2040,
+            y: 370,
+            width: 20,
+            height: 16,
+            range: 260,
+            coneAngle: 1.3,
+            startAngle: 0.4,
+            minAngle: -0.5,
+            maxAngle: 0.9,
+            rotateSpeed: 0.7,
+            _direction: 1,
+            hackable: true,
+            alarmRadius: 360,
+        },
+    ],
 
     exit: {
         x: 4780,

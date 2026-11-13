@@ -10,172 +10,170 @@ export const level1 = {
         {
             "x": 0,
             "y": 412,
-            "width": 620,
+            "width": 480,
             "height": 40
         },
         {
-            "x": 720,
-            "y": 362,
-            "width": 260,
+            "x": 180,
+            "y": 280,
+            "width": 120,
+            "height": 28
+        },
+        {
+            "x": 620,
+            "y": 372,
+            "width": 200,
             "height": 32
         },
         {
-            "x": 1080,
-            "y": 312,
-            "width": 300,
-            "height": 32
-        },
-        {
-            "x": 1500,
-            "y": 382,
-            "width": 500,
-            "height": 40
-        },
-        {
-            "x": 2100,
+            "x": 960,
             "y": 322,
-            "width": 300,
+            "width": 220,
             "height": 32
         },
         {
-            "x": 2500,
+            "x": 1280,
             "y": 402,
-            "width": 700,
+            "width": 260,
+            "height": 40
+        },
+        {
+            "x": 1620,
+            "y": 352,
+            "width": 180,
+            "height": 32
+        },
+        {
+            "x": 1860,
+            "y": 312,
+            "width": 140,
+            "height": 28
+        },
+        {
+            "x": 2060,
+            "y": 362,
+            "width": 140,
+            "height": 28
+        },
+        {
+            "x": 2260,
+            "y": 302,
+            "width": 140,
+            "height": 28
+        },
+        {
+            "x": 2480,
+            "y": 402,
+            "width": 480,
+            "height": 40
+        },
+        {
+            "x": 2600,
+            "y": 300,
+            "width": 160,
+            "height": 28
+        },
+        {
+            "x": 3040,
+            "y": 352,
+            "width": 200,
+            "height": 32
+        },
+        {
+            "x": 3060,
+            "y": 220,
+            "width": 140,
+            "height": 28
+        },
+        {
+            "x": 3300,
+            "y": 280,
+            "width": 220,
+            "height": 32
+        },
+        {
+            "x": 3560,
+            "y": 402,
+            "width": 360,
             "height": 40
         }
     ],
     "shadowPlatforms": [],
     "gems": [
-        {
-            "x": 240,
-            "y": 342
-        },
-        {
-            "x": 330,
-            "y": 342
-        },
-        {
-            "x": 760,
-            "y": 300
-        },
-        {
-            "x": 820,
-            "y": 300
-        },
-        {
-            "x": 1160,
-            "y": 242
-        },
-        {
-            "x": 1270,
-            "y": 242
-        },
-        {
-            "x": 1620,
-            "y": 312
-        },
-        {
-            "x": 1740,
-            "y": 312
-        },
-        {
-            "x": 2120,
-            "y": 260
-        },
-        {
-            "x": 2580,
-            "y": 332
-        },
-        {
-            "x": 2700,
-            "y": 332
-        },
-        {
-            "x": 2860,
-            "y": 332
-        },
-        {
-            "x": 880,
-            "y": 300
-        },
-        {
-            "x": 920,
-            "y": 300
-        },
-        {
-            "x": 2200,
-            "y": 260
-        },
-        {
-            "x": 2280,
-            "y": 260
-        },
-        {
-            "x": 2360,
-            "y": 260
-        },
-        {
-            "x": 2800,
-            "y": 340
-        },
-        {
-            "x": 2960,
-            "y": 340
-        }
+        { "x": 240, "y": 342 },
+        { "x": 330, "y": 342 },
+        { "x": 210, "y": 230 },
+        { "x": 250, "y": 230 },
+        { "x": 710, "y": 330 },
+        { "x": 1040, "y": 262 },
+        { "x": 1320, "y": 360 },
+        { "x": 1400, "y": 360 },
+        { "x": 1480, "y": 360 },
+        { "x": 1700, "y": 310 },
+        { "x": 1900, "y": 270 },
+        { "x": 2100, "y": 320 },
+        { "x": 2300, "y": 260 },
+        { "x": 2520, "y": 360 },
+        { "x": 2820, "y": 360 },
+        { "x": 2620, "y": 258 },
+        { "x": 2700, "y": 258 },
+        { "x": 3080, "y": 310 },
+        { "x": 3080, "y": 178 },
+        { "x": 3120, "y": 178 },
+        { "x": 3160, "y": 178 },
+        { "x": 3380, "y": 238 },
+        { "x": 3620, "y": 360 },
+        { "x": 3780, "y": 360 }
     ],
     "bonusBlocks": [
         {
-            "x": 1180,
-            "y": 152,
+            "x": 220,
+            "y": 180,
             "width": 42,
             "height": 42,
             "reward": "weapon",
             "weaponId": "spread"
         },
         {
-            "x": 2260,
-            "y": 202,
+            "x": 1400,
+            "y": 300,
             "width": 42,
             "height": 42,
             "reward": "random",
-            "randomPool": [
-                "gem",
-                "energy",
-                "life",
-                "weapon"
-            ],
+            "randomPool": ["gem", "energy", "life"],
             "weaponId": "wave"
         },
         {
-            "x": 1720,
-            "y": 240,
+            "x": 2160,
+            "y": 210,
             "width": 42,
             "height": 42,
-            "reward": "gem"
+            "reward": "life"
         },
         {
-            "x": 1780,
-            "y": 240,
+            "x": 2660,
+            "y": 200,
             "width": 42,
             "height": 42,
-            "reward": "gem"
+            "reward": "weapon",
+            "weaponId": "laser"
         },
         {
-            "x": 1320,
-            "y": 120,
+            "x": 3120,
+            "y": 130,
+            "width": 42,
+            "height": 42,
+            "reward": "random",
+            "randomPool": ["gem", "energy", "life", "weapon"],
+            "weaponId": "plasma"
+        },
+        {
+            "x": 3380,
+            "y": 190,
             "width": 42,
             "height": 42,
             "reward": "gem",
             "hits": 3
-        },
-        {
-            "x": 1500,
-            "y": 200,
-            "width": 42,
-            "height": 42,
-            "reward": "random",
-            "randomPool": ["gem", "energy"],
-            "hits": 2
         }
     ],
     "enemies": [
@@ -187,12 +185,66 @@ export const level1 = {
             "shootRangeY": 400,
             "projectileSpeed": 380,
             "projectileColor": "#a855f7",
-            "x": 2720,
-            "y": 360,
+            "x": 1040,
+            "y": 280,
             "width": 42,
             "height": 42,
-            "minX": 2720,
-            "maxX": 2760,
+            "minX": 1040,
+            "maxX": 1040,
+            "speed": 0,
+            "direction": 1,
+            "health": 4
+        },
+        {
+            "x": 1320,
+            "y": 360,
+            "width": 46,
+            "height": 50,
+            "minX": 1280,
+            "maxX": 1500,
+            "speed": 130,
+            "direction": 1,
+            "health": 2,
+            "active": true
+        },
+        {
+            "x": 2100,
+            "y": 312,
+            "width": 46,
+            "height": 50,
+            "minX": 2060,
+            "maxX": 2200,
+            "speed": 150,
+            "direction": -1,
+            "health": 2,
+            "active": true
+        },
+        {
+            "x": 2600,
+            "y": 352,
+            "width": 46,
+            "height": 50,
+            "minX": 2480,
+            "maxX": 2860,
+            "speed": 140,
+            "direction": -1,
+            "health": 3,
+            "active": true
+        },
+        {
+            "type": "turret",
+            "canShoot": true,
+            "shootDelay": 0.9,
+            "shootRangeX": 550,
+            "shootRangeY": 400,
+            "projectileSpeed": 400,
+            "projectileColor": "#a855f7",
+            "x": 3380,
+            "y": 238,
+            "width": 42,
+            "height": 42,
+            "minX": 3380,
+            "maxX": 3380,
             "speed": 0,
             "direction": 1,
             "health": 4
@@ -200,8 +252,8 @@ export const level1 = {
     ],
     "hackTerminals": [
         {
-            "x": 2180,
-            "y": 260,
+            "x": 2300,
+            "y": 250,
             "width": 36,
             "height": 52,
             "difficulty": "easy",
@@ -212,24 +264,30 @@ export const level1 = {
     ],
     "checkpoints": [
         {
-            "x": 1880,
-            "y": 300,
+            "x": 1660,
+            "y": 272,
+            "width": 60,
+            "height": 80
+        },
+        {
+            "x": 3080,
+            "y": 272,
             "width": 60,
             "height": 80
         }
     ],
     "keys": [
         {
-            "x": 640,
-            "y": 320
+            "x": 1460,
+            "y": 350
         },
         {
-            "x": 1540,
-            "y": 300
+            "x": 2700,
+            "y": 350
         },
         {
-            "x": 2480,
-            "y": 340
+            "x": 3100,
+            "y": 168
         }
     ],
     "fx": {
@@ -242,18 +300,18 @@ export const level1 = {
         "warningLights": true
     },
     "exit": {
-        "x": 3060,
+        "x": 3820,
         "y": 302,
         "width": 70,
         "height": 100,
         "locked": true,
         "keysRequired": 3,
-        "unlockMode": "allGems"
+        "unlockMode": "allGemsOrEnemiesOrKeys"
     },
     "shopTerminals": [
         {
-            "x": 2080,
-            "y": 262,
+            "x": 1700,
+            "y": 292,
             "width": 44,
             "height": 60,
             "singleUse": false,
@@ -262,24 +320,24 @@ export const level1 = {
     ],
     "dataLogs": [
         {
-            "x": 780,
-            "y": 272,
+            "x": 1340,
+            "y": 330,
             "width": 30,
             "height": 36,
             "logId": "log_1_1",
             "collected": false
         },
         {
-            "x": 1620,
-            "y": 282,
+            "x": 2640,
+            "y": 228,
             "width": 30,
             "height": 36,
             "logId": "log_1_2",
             "collected": false
         },
         {
-            "x": 2620,
-            "y": 302,
+            "x": 3080,
+            "y": 148,
             "width": 30,
             "height": 36,
             "logId": "log_1_3",
@@ -290,8 +348,8 @@ export const level1 = {
         {
             "type": "security_cam",
             "id": "cam_1",
-            "x": 1540,
-            "y": 280,
+            "x": 1860,
+            "y": 290,
             "width": 20,
             "height": 16,
             "range": 220,
@@ -307,7 +365,7 @@ export const level1 = {
         {
             "type": "tripwire",
             "id": "trip_1",
-            "x": 2580,
+            "x": 1280,
             "y": 392,
             "width": 80,
             "height": 8,
@@ -318,15 +376,15 @@ export const level1 = {
     "npcs": [
         {
             "x": 100,
-            "y": 352,
+            "y": 362,
             "width": 30,
             "height": 50,
             "dialogId": "npc_rooftop_fixer",
             "nearPlayer": false
         },
         {
-            "x": 2320,
-            "y": 260,
+            "x": 3000,
+            "y": 302,
             "width": 30,
             "height": 50,
             "dialogId": "npc_rooftop_hacker",

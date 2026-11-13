@@ -66,9 +66,22 @@ export const level3 = {
             "y": 380,
             "width": 260,
             "height": 32
+        },
+        {
+            "x": 1480,
+            "y": 402,
+            "width": 120,
+            "height": 40
         }
     ],
-    "shadowPlatforms": [],
+    "shadowPlatforms": [
+        {
+            "x": 3300,
+            "y": 150,
+            "width": 140,
+            "height": 24
+        }
+    ],
     "gems": [
         {
             "x": 180,
@@ -161,6 +174,18 @@ export const level3 = {
         {
             "x": 1260,
             "y": 300
+        },
+        {
+            "x": 1510,
+            "y": 360
+        },
+        {
+            "x": 3320,
+            "y": 110
+        },
+        {
+            "x": 3380,
+            "y": 110
         }
     ],
     "bonusBlocks": [
@@ -434,7 +459,40 @@ export const level3 = {
     ],
     "keys": [],
     "shadowAreas": [],
-    "hazards": [],
+    "hazards": [
+        {
+            "type": "laser_grid",
+            "id": "laser_3a",
+            "x": 1500,
+            "y": 300,
+            "width": 4,
+            "height": 100,
+            "thickness": 4,
+            "damage": 18,
+            "orientation": "vertical",
+            "cycleTime": 2.6,
+            "dutyCycle": 0.6,
+            "hackable": true,
+            "alarmRadius": 320
+        },
+        {
+            "type": "security_cam",
+            "id": "cam_3",
+            "x": 1700,
+            "y": 210,
+            "width": 20,
+            "height": 16,
+            "range": 240,
+            "coneAngle": 1.3,
+            "startAngle": 0.4,
+            "minAngle": -0.5,
+            "maxAngle": 0.9,
+            "rotateSpeed": 0.65,
+            "_direction": 1,
+            "hackable": true,
+            "alarmRadius": 320
+        }
+    ],
     "npcs": [
         {
             "x": 1420,
@@ -449,7 +507,24 @@ export const level3 = {
             "type": "info"
         }
     ],
-    "dataLogs": [],
+    "dataLogs": [
+        {
+            "x": 1430,
+            "y": 300,
+            "width": 30,
+            "height": 36,
+            "logId": "log_3_1",
+            "collected": false
+        },
+        {
+            "x": 3330,
+            "y": 90,
+            "width": 30,
+            "height": 36,
+            "logId": "log_3_2",
+            "collected": false
+        }
+    ],
     "fx": {
         "stars": false,
         "fog": true,
